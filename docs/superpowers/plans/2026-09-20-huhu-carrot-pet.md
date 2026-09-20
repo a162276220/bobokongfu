@@ -555,7 +555,7 @@ D:/桌宠/
 **接口：**
 - 依赖输入：任务 2 的 base.huhu.png 与 eye-regions.json；任务 3 的 transform 与 paint_blink。
 - 对外产出：
-  - pet/huhu-carrot/frames/ 下七个子目录，目录名为轨道名，帧文件名为 f00.webp 起。
+  - pet/huhu-carrot/frames/ 下七个子目录，目录名为轨道名，帧文件名 f00.png 起（执行时由 .webp 改 .png，理由见本任务末尾的执行修正）。
   - assets/derived/frames-spec.json：七项，每项形如 {"frames": ["f00.webp", ...], "frameMs": [...], "loop": true/false, "fallback": "idle" 或 null}。任务 6 的 build_manifests.py 直接消费这份文件，帧数与帧时长不在两处各写一遍。
 
 - [ ] **步骤 1：编写失败的测试**
@@ -770,6 +770,11 @@ D:/桌宠/
 - [ ] **步骤 7：提交**
 
 运行：git add -A && git commit -m "feat: generate seven frames2d animation tracks"
+
+### 任务 4 执行修正（权威代码见 tools/build_frames.py）
+
+1. 帧容器由 WEBP lossless 改 PNG。实测：内存中的帧 alpha=0 且 RGB 非零的像素数为 0，存成 WEBP lossless 再读回后变成 1097 个，RGB 值形如 (0,0,255)、(0,127,0)、(0,51,0)——libwebp 的无损编码不把 alpha=0 像素的 RGB 当作可保留数据，往返即破坏「透明区 RGB 清零」这条全局约束。引擎 lib/index.js 里帧扩展名白名单同时含 .webp 与 .png（2699/3776/5197 行附近），所以改 PNG 不动引擎接口。代价是体积：50 帧 PNG 共 1.81 MB。
+2. 眨眼测试改写。原断言 `d11 > d10 * 2`（整帧均差）在真实帧上不成立：f10 与 f11 相对 f00 的整帧均差分别是 12.040 与 12.032，几乎相等——2.5% 的缩放把剪影边缘推出几像素，边缘像素主导了均值，眨眼信号被淹没。改为在眼睛区域量亮度：f10=132.91、f11=126.37、f12=130.97、f13=134.22，断言 f11 比 f10、f12、f13 各低 3.0 以上，实测落差 6.5 以上，留有约一倍余量。这条改法把测量点从「整图差异」挪到「语义所在的区域」，检测力比原来更强。
 
 ## 任务 5：sprite2d 兼容图集（build_atlas.py）
 

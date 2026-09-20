@@ -1,0 +1,158 @@
+{
+  "idle": {
+    "frames": [
+      "f00.png",
+      "f01.png",
+      "f02.png",
+      "f03.png",
+      "f04.png",
+      "f05.png",
+      "f06.png",
+      "f07.png",
+      "f08.png",
+      "f09.png",
+      "f10.png",
+      "f11.png",
+      "f12.png",
+      "f13.png",
+      "f14.png",
+      "f15.png"
+    ],
+    "frameMs": [
+      260,
+      260,
+      260,
+      260,
+      260,
+      260,
+      260,
+      260,
+      260,
+      260,
+      260,
+      150,
+      150,
+      260,
+      260,
+      260
+    ],
+    "loop": true,
+    "fallback": null
+  },
+  "waiting": {
+    "frames": [
+      "f00.png",
+      "f01.png",
+      "f02.png",
+      "f03.png",
+      "f04.png",
+      "f05.png"
+    ],
+    "frameMs": [
+      180,
+      180,
+      180,
+      180,
+      180,
+      180
+    ],
+    "loop": true,
+    "fallback": null
+  },
+  "thinking": {
+    "frames": [
+      "f00.png",
+      "f01.png",
+      "f02.png",
+      "f03.png",
+      "f04.png",
+      "f05.png"
+    ],
+    "frameMs": [
+      140,
+      140,
+      140,
+      140,
+      140,
+      140
+    ],
+    "loop": true,
+    "fallback": null
+  },
+  "tool": {
+    "frames": [
+      "f00.png",
+      "f01.png",
+      "f02.png",
+      "f03.png",
+      "f04.png",
+      "f05.png",
+      "f06.png",
+      "f07.png"
+    ],
+    "frameMs": [
+      110,
+      110,
+      110,
+      110,
+      110,
+      110,
+      110,
+      110
+    ],
+    "loop": true,
+    "fallback": null
+  },
+  "review": {
+    "frames": [
+      "f00.png",
+      "f01.png",
+      "f02.png",
+      "f03.png",
+      "f04.png",
+      "f05.png"
+    ],
+    "frameMs": [
+      160,
+      160,
+      160,
+      160,
+      160,
+      160
+    ],
+    "loop": true,
+    "fallback": null
+  },
+  "done": {
+    "frames": [
+      "f00.png",
+      "f01.png",
+      "f02.png",
+      "f03.png"
+    ],
+    "frameMs": [
+      130,
+      130,
+      130,
+      130
+    ],
+    "loop": false,
+    "fallback": "idle"
+  },
+  "failed": {
+    "frames": [
+      "f00.png",
+      "f01.png",
+      "f02.png",
+      "f03.png"
+    ],
+    "frameMs": [
+      150,
+      150,
+      150,
+      150
+    ],
+    "loop": false,
+    "fallback": "idle"
+  }
+}
