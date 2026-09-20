@@ -537,6 +537,14 @@ D:/桌宠/
 
 运行：git add -A && git commit -m "feat: add affine transform and blink primitives"
 
+### 任务 3 执行修正（权威代码见 tools/transforms.py）
+
+1. AFFINE 重采样从 LANCZOS 改 BICUBIC。PIL 的 Image.transform 在 mode 为 AFFINE 时只接受 NEAREST、BILINEAR、BICUBIC，传 LANCZOS 直接抛 ValueError: Image.Resampling.LANCZOS (1) cannot be used。BICUBIC 保住剪影平滑度。
+2. 眨眼弧线改为以 cy 为中心。原实现端点在 y=cy、中段下凹到 cy+dip，整条线落在眼睛框的下半部；改为端点在 cy-dip、中段经过 (cx, cy)，闭眼线才横穿眼睛中心。paint_blink 的测试断言像素 (cx, cy) 变暗，这一条正是抓住该问题的检查。
+3. identity 测试从「全通道均差小于 2.0」改为「alpha 均差与不透明像素 RGB 均差各小于 1.5」。实测原阈值下均差为 2.388：形状与颜色其实都保住了（alpha 均差 0.778，不透明像素 RGB 均差 0.490），2.388 是由少数边界像素 alpha 归零后被「透明区 RGB 清零」不变量抹成 0 造成的（2468 个像素变化，最大单通道差 255）。2 倍超采样往返本来就不可能逐位相等，原阈值把实现细节当成了不变量。
+
+实测变换行为：rotate ±8 度基线保持（底部行 y=200 不变），squash_y=0.92 前景从 14031 降到 12902 且顶部下移 14 行，scale=0.88 降到 10871，dy=-10 全图精确上移 10 行，paint_blink 不改变剪影前景计数。
+
 ## 任务 4：frames2d 七轨道帧生成（build_frames.py）
 
 **文件：**
