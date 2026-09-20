@@ -2577,6 +2577,18 @@ Write-Host 'WROTE'
 
 运行：git add -A && git commit -m "feat: generate release docs and installers"
 
+### 任务 9 执行修正（权威代码见 tools/build_installers.py）
+
+1. CONFIG_PS1 里有一个会改坏用户配置的真 bug：原写法是 Copy-Item -LiteralPath $ConfigPath -LiteralPath $BackupPath -Force。Copy-Item 的目标参数叫 -Destination，把源和目标都写成 -LiteralPath 会抛 ParameterAlreadyBound；脚本顶部有 $ErrorActionPreference = 'Stop'，于是整个配置步骤在写任何内容之前直接以 rc=1 退出，备份也没建。实测修复前：退出码 1、无输出、备份文件不存在。改成 -Destination $BackupPath 后五个场景全绿。
+2. 计划里没有这一步，但配置脚本是唯一会修改用户文件的产物，所以加了实测：在真机（Windows 11 NT 10.0.26200、PowerShell 5.1.26100）用五个临时 config.toml 各跑一次，结果全部符合预期——
+   - 文件不存在：SKIPPED，不动。
+   - 有 [desktop] 段且无该键：WROTE，键插在最后一个 [desktop] 段的末尾，备份已建。
+   - 键已等于 custom:huhu-carrot-office：ALREADY-SET，文件逐字未变，备份已建。
+   - 键等于 custom:bubu：KEPT-OTHER-VALUE，文件逐字未变，备份已建。
+   - 没有任何 [desktop] 段：WROTE，在文件末尾追加空行加 [desktop] 加该键，备份已建。
+   - 额外交付一个双 [desktop] 段的用例，确认写入落在最后一个段里，没有误插到中间的段。
+3. 已知残留：PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 UTF-8 BOM，所以原本无 BOM 的 config.toml 会被加上 BOM。TOML 解析器一般容忍文件首的 BOM，但本机没有 Codex 的实现可验证。记录在这里，不假装已解决；真要规避得改成 .NET 的 [System.IO.File]::WriteAllLines 配无 BOM 的 UTF8Encoding($false)，代价是脚本变长且脱离纯 cmdlet 风格。
+
 ## 任务 10：发布包组装与 zip（package_release.py）
 
 **文件：**
