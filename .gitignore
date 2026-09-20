@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+# 构建中间产物不入库，只在本地工作区生成：
+release/
+*.zip
+preview/
+pet/huhu-carrot/frames/
+pet/huhu-carrot-office/spritesheet-win-1.webp
