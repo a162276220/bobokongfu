@@ -59,7 +59,13 @@ def review_frame(i):
 
 def done_frame(i):
     n = 4
-    lift = math.sin(math.pi * i / (n - 1))
+    # A plain sin(pi*i/(n-1)) arc is symmetric, so with n=4 the lift values are
+    # 0, 0.866, 0.866, 0 and frames 1 and 2 come out pixel-identical. That was
+    # invisible in the pet but the preview GIF optimizer merged them into a
+    # single 260 ms frame (durations measured [130, 260, 130, 130]), dropping
+    # the frame count. Raising t to 0.6 breaks the symmetry while still pinning
+    # both ends at ground: 0, 0.998, 0.636, 0.
+    lift = math.sin(math.pi * (i / (n - 1)) ** 0.6)
     return (dict(dy=-16.0 * lift, squash_y=1.0 + 0.04 * lift, squash_x=1.0 - 0.04 * lift), 0.0)
 
 

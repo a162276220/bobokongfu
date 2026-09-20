@@ -2066,6 +2066,13 @@ D:/桌宠/
 
 运行：git add -A && git commit -m "feat: generate previews and overview grid"
 
+### 任务 8 执行修正（权威代码见 tools/build_previews.py 与 tools/build_frames.py）
+
+1. 图集预览文件名从 atlas-huhu-carrot-office.webp 改 .png，测试里读的也是 .png。原因同任务 4 与任务 5。
+2. done_frame 的缓动改非对称。原式 lift = sin(pi*i/(n-1)) 在 n=4 时取值为 0、0.866、0.866、0，第 1 帧与第 2 帧像素完全相同。这在宠物本体里看不出来，但预览 GIF 开了 optimize，Pillow 会把相邻相同帧合并成一帧并把时长相加——实测 track-done.gif 只有 4 帧、durations 为 [130, 260, 130, 130]，第 5 帧的 idle 过渡还在，丢失的其实是被合并的那一帧。改成 lift = sin(pi*(i/(n-1))**0.6) 后取值为 0、0.998、0.636、0，四帧各异且两端仍钉在地面，GIF 恢复 5 帧。这是任务 4 里的一处动画质量缺陷，由任务 8 的测试暴露，所以记录在这里。
+3. 棋盘格取样从 flat[:4] 改 flat[:144]。tile 为 12 时前 4 个像素全部落在同一个方块内，只会取到一种颜色，原断言必然失败。实测前 144 个像素里两种颜色都在。
+4. 第 2 条改完后重新跑了 build_frames.py、build_atlas.py、build_manifests.py、build_previews.py 四个脚本，因为图集第 4 行复用 frames/done/ 的帧，不重生会让图集里那两帧继续相同。frames-spec.json 的 frameMs 与帧名未变，所以清单内容不变，重跑只为一致性。
+
 ## 任务 9：发布包文案与安装卸载器（build_installers.py）
 
 **文件：**
