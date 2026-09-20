@@ -786,7 +786,7 @@ D:/桌宠/
 **接口：**
 - 依赖输入：任务 4 的 pet/huhu-carrot/frames 下 tool、done、failed、waiting、thinking、review 六个轨道的帧；任务 2 的 base.huhu.png 与 eye-regions.json；任务 3 的 transform 与 paint_blink。
 - 对外产出：
-  - spritesheet-win-1.webp：8 列 9 行，每格 192x208，整张 1536x1872，WEBP lossless，RGBA，透明区 RGB 清零。
+  - spritesheet-win-1.png（执行时由 .webp 改 .png，理由见本任务末尾的执行修正）：8 列 9 行，每格 192x208，整张 1536x1872，PNG，RGBA，透明区 RGB 清零。
   - atlas-spec.json：含 columns 为 8、rows 为 9、cell 为 192x208、frames 为每行已用帧数、rowNames 为九行动画名、tracks 为每轨道节奏。任务 6 直接消费。
 
 - [ ] **步骤 1：编写失败的测试**
@@ -1002,6 +1002,13 @@ D:/桌宠/
 - [ ] **步骤 7：提交**
 
 运行：git add -A && git commit -m "feat: build codex-compatible 8x9 sprite atlas"
+
+### 任务 5 执行修正（权威代码见 tools/build_atlas.py）
+
+1. 图集容器由 WEBP lossless 改 PNG，文件名从 spritesheet-win-1.webp 改 spritesheet-win-1.png。原因与任务 4 相同：无损 WEBP 不保留 alpha=0 像素的 RGB。引擎 lib/index.js 的 spritesheet 读路径同时接受 .webp 与 .png。体积 1.43 MB。任务 6 的清单里 spritesheetPath 必须同步改成 spritesheet-win-1.png，否则清单指向不存在的文件。
+2. build_atlas 拼贴改为不带蒙版：sheet.paste(im, box) 而不是 sheet.paste(im, box, im)。带蒙版会把每个半透明边缘像素与透明底按 alpha 加权混合，RGB 被减半（例 (230,120,40,128) 变成 (115,60,20,64)），test_running_right_row_reuses_the_tool_track_frames 断言的字节相等因此失败。行 1 直接复用任务 4 的帧文件，这一条测试正是捕捉该问题的检查。
+3. 计划里 print('atlas', OUT, OUT.size) 是笔误：OUT 是 pathlib.Path，没有 size 属性，运行即 AttributeError。改为先把 build_atlas(rows) 的结果存成局部变量 atlas 再打印 atlas.size。
+4. 眨眼测试按眼睛区域亮度改写，理由与实测数据同任务 4：整格均差 cell5=12.040、cell6=11.171、cell7=7.120，无法区分；眼睛区域亮度 cell5=132.91、cell6=127.43、cell7=133.82、cell0=140.20，断言 cell6 比 cell5、cell7、cell0 各低 3.0 以上，实测落差 5.5 以上。
 
 ## 任务 6：清单与台词生成（build_manifests.py）
 

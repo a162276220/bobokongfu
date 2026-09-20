@@ -1,0 +1,126 @@
+{
+  "columns": 8,
+  "rows": 9,
+  "cell": {
+    "width": 192,
+    "height": 208
+  },
+  "frames": [
+    8,
+    8,
+    6,
+    6,
+    4,
+    4,
+    6,
+    6,
+    6
+  ],
+  "rowNames": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review"
+  ],
+  "tracks": {
+    "idle": {
+      "durations": [
+        400,
+        400,
+        400,
+        400,
+        400,
+        400,
+        400,
+        400
+      ]
+    },
+    "running-right": {
+      "durations": [
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110
+      ]
+    },
+    "running-left": {
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160
+      ]
+    },
+    "waving": {
+      "durations": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ]
+    },
+    "jumping": {
+      "durations": [
+        130,
+        130,
+        130,
+        130
+      ],
+      "loop": false,
+      "fallback": "idle"
+    },
+    "failed": {
+      "durations": [
+        150,
+        150,
+        150,
+        150
+      ],
+      "loop": false,
+      "fallback": "idle"
+    },
+    "waiting": {
+      "durations": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180
+      ]
+    },
+    "running": {
+      "durations": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ]
+    },
+    "review": {
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160
+      ]
+    }
+  }
+}
