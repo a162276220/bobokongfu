@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schemas.linxin666.org/dsh-pet/voice-pack-v1.schema.json",
+  "voicePackVersion": 1,
+  "status": {
+    "prepare": [
+      "准备开工，叶子精神得很。",
+      "深呼吸，开始吧。"
+    ],
+    "waiting": [
+      "在这儿等你下命令。",
+      "暂停待命中，随时出发。"
+    ],
+    "thinking": [
+      "正在想事情……",
+      "胡萝卜里也在思考。"
+    ],
+    "review": [
+      "我在检查，别催。",
+      "再过一遍更稳。"
+    ],
+    "toolResult": [
+      "收到结果了，继续。",
+      "这一步有数了。"
+    ],
+    "done": [
+      "搞定！撒个小欢。",
+      "完成，今天糖分满分。"
+    ],
+    "failed": [
+      "哎呀，没做成。",
+      "再来一次说不定就成了。"
+    ]
+  },
+  "whispers": {
+    "categories": {
+      "thinking": [
+        "脑子转起来了。",
+        "有点头绪了。"
+      ],
+      "writing": [
+        "一笔一笔地写。",
+        "慢慢来，别急。"
+      ],
+      "reading": [
+        "我在看，看得挺慢。",
+        "这段有点绕。"
+      ]
+    },
+    "results": {
+      "pass": [
+        "过了，稳。",
+        "验收通过，开心。"
+      ],
+      "fail": [
+        "没过……我看看。",
+        "再来一轮。"
+      ],
+      "done": [
+        "收工，撒个欢。"
+      ]
+    }
+  },
+  "panel": {
+    "labels": {
+      "feed": "投喂",
+      "rename": "改名",
+      "hide": "先躲起来",
+      "confirm": "确定"
+    },
+    "stats": {
+      "rank": "胡萝卜等级 {rank}",
+      "treats": "小鱼干 {n} 条",
+      "points": "{points} 分"
+    },
+    "actions": [
+      "feed",
+      "rename",
+      "hide"
+    ]
+  }
+}

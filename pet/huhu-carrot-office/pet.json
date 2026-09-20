@@ -1,0 +1,147 @@
+{
+  "id": "huhu-carrot-office",
+  "displayName": "胡胡",
+  "description": "胡萝卜毛绒玩偶；会呼吸、眨眼，并随会话状态变化。",
+  "spritesheetPath": "spritesheet-win-1.png",
+  "cell": {
+    "width": 192,
+    "height": 208
+  },
+  "columns": 8,
+  "frames": [
+    8,
+    8,
+    6,
+    6,
+    4,
+    4,
+    6,
+    6,
+    6
+  ],
+  "tracks": {
+    "idle": {
+      "durations": [
+        400,
+        400,
+        400,
+        400,
+        400,
+        400,
+        400,
+        400
+      ]
+    },
+    "running-right": {
+      "durations": [
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110
+      ]
+    },
+    "running-left": {
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160
+      ]
+    },
+    "waving": {
+      "durations": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ]
+    },
+    "jumping": {
+      "durations": [
+        130,
+        130,
+        130,
+        130
+      ],
+      "loop": false,
+      "fallback": "idle"
+    },
+    "failed": {
+      "durations": [
+        150,
+        150,
+        150,
+        150
+      ],
+      "loop": false,
+      "fallback": "idle"
+    },
+    "waiting": {
+      "durations": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180
+      ]
+    },
+    "running": {
+      "durations": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ]
+    },
+    "review": {
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160
+      ]
+    }
+  },
+  "sequences": {
+    "idle": [
+      "idle",
+      "idle",
+      "waving",
+      "idle",
+      "running-left"
+    ]
+  },
+  "remarks": {
+    "pet": [
+      "胡萝卜脑袋被你摸到了～",
+      "嘿嘿，别蹭我叶子啦。",
+      "再摸一下嘛，就一下。"
+    ],
+    "petCooldown": [
+      "刚才被摸过啦，歇一会儿。"
+    ],
+    "feed": [
+      "这不是小鱼干，但我不挑。",
+      "谢谢投喂，胡萝卜味的。"
+    ],
+    "feedCooldown": [
+      "吃不下了，今天糖分超标。"
+    ],
+    "noTreats": [
+      "我自带糖分，不用投喂啦。"
+    ]
+  }
+}

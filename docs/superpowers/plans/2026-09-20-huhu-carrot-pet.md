@@ -1112,7 +1112,7 @@ D:/桌宠/
         assert 'sprite2d' not in doc
         assert 'petManifestVersion' not in doc
         assert 'spriteVersionNumber' not in doc
-        assert doc['spritesheetPath'] == 'spritesheet-win-1.webp'
+        assert doc['spritesheetPath'] == 'spritesheet-win-1.png'  # 执行时由 .webp 改 .png
         assert doc['cell'] == {'width': 192, 'height': 208}
         assert doc['columns'] == 8
         assert doc['frames'] == [8, 8, 6, 6, 4, 4, 6, 6, 6]
@@ -1282,7 +1282,7 @@ D:/桌宠/
             'id': 'huhu-carrot-office',
             'displayName': DISPLAY_NAME,
             'description': DESCRIPTION,
-            'spritesheetPath': 'spritesheet-win-1.webp',
+            'spritesheetPath': SPRITESHEET,  # 'spritesheet-win-1.png'，执行时由 .webp 改 .png
             'cell': {'width': spec['cell']['width'], 'height': spec['cell']['height']},
             'columns': spec['columns'],
             'frames': list(spec['frames']),
@@ -1333,6 +1333,14 @@ D:/桌宠/
 - [ ] **步骤 8：提交**
 
 运行：git add -A && git commit -m "feat: generate pet manifests and voice packs"
+
+### 任务 6 执行修正（权威代码见 tools/build_manifests.py）
+
+1. spritesheetPath 从 spritesheet-win-1.webp 改 spritesheet-win-1.png，并抽成模块级常量 SPRITESHEET，测试断言同步。这是任务 4 与任务 5 改 PNG 的连带修正；不改的话清单会指向一个不存在的文件，test_sprite2d_manifest_uses_the_flat_legacy_shape 最后一行断言（文件必须存在）就是为此设的。
+2. 引擎冒烟验证把两份清单都跑了，不只是计划里的 huhu-carrot-office。结果：
+   - huhu-carrot-office：entry=true，rows=[8,8,6,6,4,4,6,6,6]，cols=8，atlasRows=9，cell={width:192,height:208}，seqs=[idle]，nTracks=9，warn=0。与计划预期完全一致。
+   - huhu-carrot（frames2d）：entry=true，rows=[6,8,8,4,5,8,6,6,6]，cols=8，atlasRows=9，seqs=[]，nTracks=9，warn=0。注意这些 rows 不是我们写的，是引擎的 resolvePetManifest 把 frames2d 七轨道映射到九行图集布局时自己合成的；我们只写 tracks 与 phases。零告警说明引擎能直接读这份 v2 清单。
+3. 冒烟脚本以文件形式放 /tmp 跑时，相对导入 ./node_modules 会按脚本所在位置解析而失败，必须写成 file:///C:/... 的绝对 URL；计划里的 node --input-type=module -e 内联形式则按 cwd 解析，可用。这一条不是计划的缺陷，只是换执行方式时的坑。
 
 ## 任务 7：校验器（validate_pet.py）
 

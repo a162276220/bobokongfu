@@ -1,0 +1,197 @@
+{
+  "$schema": "https://schemas.linxin666.org/dsh-pet/pet-manifest-v2.schema.json",
+  "petManifestVersion": 2,
+  "id": "huhu-carrot",
+  "displayName": "胡胡",
+  "description": "胡萝卜毛绒玩偶；会呼吸、眨眼，并随会话状态变化。",
+  "version": "1.0.0",
+  "author": "a162276220",
+  "license": "User-supplied source; personal use only",
+  "renderer": "frames2d",
+  "frames2d": {
+    "dir": "frames",
+    "defaultFrameMs": 200,
+    "tracks": {
+      "idle": {
+        "frames": [
+          "f00.png",
+          "f01.png",
+          "f02.png",
+          "f03.png",
+          "f04.png",
+          "f05.png",
+          "f06.png",
+          "f07.png",
+          "f08.png",
+          "f09.png",
+          "f10.png",
+          "f11.png",
+          "f12.png",
+          "f13.png",
+          "f14.png",
+          "f15.png"
+        ],
+        "frameMs": [
+          260,
+          260,
+          260,
+          260,
+          260,
+          260,
+          260,
+          260,
+          260,
+          260,
+          260,
+          150,
+          150,
+          260,
+          260,
+          260
+        ],
+        "loop": true
+      },
+      "waiting": {
+        "frames": [
+          "f00.png",
+          "f01.png",
+          "f02.png",
+          "f03.png",
+          "f04.png",
+          "f05.png"
+        ],
+        "frameMs": [
+          180,
+          180,
+          180,
+          180,
+          180,
+          180
+        ],
+        "loop": true
+      },
+      "thinking": {
+        "frames": [
+          "f00.png",
+          "f01.png",
+          "f02.png",
+          "f03.png",
+          "f04.png",
+          "f05.png"
+        ],
+        "frameMs": [
+          140,
+          140,
+          140,
+          140,
+          140,
+          140
+        ],
+        "loop": true
+      },
+      "tool": {
+        "frames": [
+          "f00.png",
+          "f01.png",
+          "f02.png",
+          "f03.png",
+          "f04.png",
+          "f05.png",
+          "f06.png",
+          "f07.png"
+        ],
+        "frameMs": [
+          110,
+          110,
+          110,
+          110,
+          110,
+          110,
+          110,
+          110
+        ],
+        "loop": true
+      },
+      "review": {
+        "frames": [
+          "f00.png",
+          "f01.png",
+          "f02.png",
+          "f03.png",
+          "f04.png",
+          "f05.png"
+        ],
+        "frameMs": [
+          160,
+          160,
+          160,
+          160,
+          160,
+          160
+        ],
+        "loop": true
+      },
+      "done": {
+        "frames": [
+          "f00.png",
+          "f01.png",
+          "f02.png",
+          "f03.png"
+        ],
+        "frameMs": [
+          130,
+          130,
+          130,
+          130
+        ],
+        "loop": false,
+        "fallback": "idle"
+      },
+      "failed": {
+        "frames": [
+          "f00.png",
+          "f01.png",
+          "f02.png",
+          "f03.png"
+        ],
+        "frameMs": [
+          150,
+          150,
+          150,
+          150
+        ],
+        "loop": false,
+        "fallback": "idle"
+      }
+    },
+    "phases": {
+      "idle": "idle",
+      "waiting": "waiting",
+      "thinking": "thinking",
+      "tool": "tool",
+      "review": "review",
+      "done": "done",
+      "failed": "failed"
+    }
+  },
+  "remarks": {
+    "pet": [
+      "胡萝卜脑袋被你摸到了～",
+      "嘿嘿，别蹭我叶子啦。",
+      "再摸一下嘛，就一下。"
+    ],
+    "petCooldown": [
+      "刚才被摸过啦，歇一会儿。"
+    ],
+    "feed": [
+      "这不是小鱼干，但我不挑。",
+      "谢谢投喂，胡萝卜味的。"
+    ],
+    "feedCooldown": [
+      "吃不下了，今天糖分超标。"
+    ],
+    "noTreats": [
+      "我自带糖分，不用投喂啦。"
+    ]
+  }
+}
