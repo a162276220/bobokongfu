@@ -1,0 +1,122 @@
+{
+  "petId": "huhu-carrot-office",
+  "ok": true,
+  "fails": [],
+  "checks": [
+    {
+      "check": "pet-json-exists",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "pet-json-valid-json",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "id-lowercase-kebab",
+      "ok": true,
+      "detail": "huhu-carrot-office"
+    },
+    {
+      "check": "display-name-present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "description-present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "flat-top-level-allow-list",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "spritesheet-path-safe",
+      "ok": true,
+      "detail": "spritesheet-win-1.png"
+    },
+    {
+      "check": "spritesheet-exists",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "spritesheet-format-lossless",
+      "ok": true,
+      "detail": "PNG"
+    },
+    {
+      "check": "spritesheet-mode-rgba",
+      "ok": true,
+      "detail": "RGBA"
+    },
+    {
+      "check": "spritesheet-size",
+      "ok": true,
+      "detail": "(1536, 1872) expected (1536, 1872)"
+    },
+    {
+      "check": "atlas-rows-classic-9",
+      "ok": true,
+      "detail": "atlasRows=9"
+    },
+    {
+      "check": "frames-within-columns",
+      "ok": true,
+      "detail": "[8, 8, 6, 6, 4, 4, 6, 6, 6]"
+    },
+    {
+      "check": "spritesheet-cell-content",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "atlas-frames-match-spec",
+      "ok": true,
+      "detail": "[8, 8, 6, 6, 4, 4, 6, 6, 6] vs [8, 8, 6, 6, 4, 4, 6, 6, 6]"
+    },
+    {
+      "check": "atlas-row-names-match-spec",
+      "ok": true,
+      "detail": "['idle', 'running-right', 'running-left', 'waving', 'jumping', 'failed', 'waiting', 'running', 'review']"
+    },
+    {
+      "check": "sequences-is-object",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "sequences-valid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "remarks-valid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "voice-valid-json",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "voice-is-object",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "voice-top-level-allow-list",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "voice-content-policy",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

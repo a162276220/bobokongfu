@@ -1,0 +1,117 @@
+{
+  "petId": "huhu-carrot",
+  "ok": true,
+  "fails": [],
+  "checks": [
+    {
+      "check": "pet-json-exists",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "pet-json-valid-json",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "id-lowercase-kebab",
+      "ok": true,
+      "detail": "huhu-carrot"
+    },
+    {
+      "check": "display-name-present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "description-present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "v2-top-level-allow-list",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "renderer-enum",
+      "ok": true,
+      "detail": "frames2d"
+    },
+    {
+      "check": "renderer-block-present",
+      "ok": true,
+      "detail": "dict"
+    },
+    {
+      "check": "version-three-part",
+      "ok": true,
+      "detail": "1.0.0"
+    },
+    {
+      "check": "license-present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "frames2d-tracks-present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "frames2d-phases-present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "frames2d-phase-keys-allowed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "frames2d-phases-map-to-tracks",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "frames2d-track-names-kebab",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "frames2d-track-content",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "sequences-absent-ok",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "remarks-valid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "voice-valid-json",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "voice-is-object",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "voice-top-level-allow-list",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "voice-content-policy",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

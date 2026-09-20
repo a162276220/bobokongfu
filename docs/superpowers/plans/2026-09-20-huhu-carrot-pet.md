@@ -1854,6 +1854,14 @@ D:/桌宠/
 
 运行：git add -A && git commit -m "feat: add pet validator with validation.json output"
 
+### 任务 7 执行修正（权威代码见 tools/validate_pet.py）
+
+1. VERSION_PATTERN 在计划文本里被 JSON 转义吃掉：r'^\d+.\d+.\d+$' 变成了 r'^d+.d+.d+$'，那条正则永远匹配不到 1.0.0。实现里写成 r'^\d+\.\d+\.\d+$'。任务 6 的测试里同一处也被写成 r'd+.d+.d+'，实现时一并改回。这类错误只在跑通之后才会暴露，version-three-part 会静默失败。
+2. 格式检查从 spritesheet-format-webp 改 spritesheet-format-lossless，断言 img.format in {'PNG', 'WEBP'}。这是任务 4 与任务 5 改 PNG 的连带修正；不改的话唯一一只 sprite2d 宠物会在校验器这里被判不合格，而它已经能被引擎解析器读通（任务 6 的冒烟验证 warn=0），两者矛盾。
+3. 反向夹具 test_missing_frame_file_fails 删的文件从 f00.webp 改 f00.png。
+4. 校验结果实测：huhu-carrot 22 项检查全绿，huhu-carrot-office 23 项全绿。差别来自 frames2d 分支走 check_frames2d（6 项），sprite2d 分支走 check_sprite2d 加 check_atlas_matches_spec（11 项）。两个数量都满足测试要求的不少于 12 项。
+5. 工具侧注意：validate_pet.py 约 330 行、14 KB，一次 heredoc 写全会被截断到第 176 行左右并报 here-document delimited by end-of-file。改成六段 cat 追加后正常。这一条不是代码缺陷，是写入方式的限制。
+
 ## 任务 8：预览产物（build_previews.py）
 
 **文件：**
