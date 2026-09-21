@@ -114,8 +114,11 @@ if "%~1"=="" (
     set "PET_DIR=%~1"
 )
 
-set "TS=%date:~0,8%%time:~0,2%%time:~3,2%%time:~6,2%"
-set "TS=!TS: =0!"
+REM %date% is locale dependent: on a YYYY/MM/DD machine ~0,8 yields
+REM 2026/09/ (no day, and with slashes) which landed inside the backup
+REM FILENAME and made Copy-Item fail. Get-Date is locale independent.
+set "TS=manual"
+for /f "delims=" %%T in ('powershell -NoProfile -NoLogo -Command "Get-Date -Format yyyyMMddHHmmss"') do set "TS=%%T"
 set "LOG_DIR=%LOCALAPPDATA%@BS@HuhuPet"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 set "LOG=%LOG_DIR%@BS@huhu-install-!TS!.log"
@@ -143,65 +146,16 @@ if not defined HUHU_YES (
     pause
 )
 
-REM stage 3: stage into a hidden temp dir, byte-compare, then rename
+REM stage 3: stage into a hidden temp dir, verify the staged copy, then rename
 call :install_pet huhu-carrot
 if errorlevel 1 exit /b 1
 call :install_pet huhu-carrot-office
 if errorlevel 1 exit /b 1
 
-REM stage 4: point the desktop pet selector at the codex-compatible pet
-call :write_config
-if errorlevel 1 exit /b 1
-
-echo.
-echo Install finished. Restart DSH or Codex, then pick 胡胡 in settings.
-exit /b 0
-
-:install_pet
-set "ID=%~1"
-set "SRC=%PKG_DIR%pet@BS@%ID%"
-set "DST=%PET_DIR%@BS@%ID%"
-set "TMP=%PET_DIR%@BS@.%ID%-installing"
-echo [%date% %time%] installing %ID% >> "%LOG%"
-if not exist "%SRC%" (
-    echo [ERROR] source directory missing: %SRC% >> "%LOG%"
-    echo [ERROR] source directory missing: %SRC%
-    exit /b 1
-)
-if exist "%TMP%" rmdir /S /Q "%TMP%"
-if not exist "%PET_DIR%" mkdir "%PET_DIR%"
-xcopy /E /I /Y "%SRC%" "%TMP%" >nul
-if errorlevel 1 (
-    echo [ERROR] copy failed for %ID% >> "%LOG%"
-    rmdir /S /Q "%TMP%"
-    exit /b 1
-)
-set "SAME=1"
-for /R "%SRC%" %%F in (*) do (
-    set "REL=%%F"
-    set "REL=!REL:%SRC%@BS@=!"
-    fc /B "%%F" "%TMP%!REL!" >nul 2>&1
-    if errorlevel 1 (
-        set "SAME=0"
-        echo [ERROR] byte compare failed: !REL! >> "%LOG%"
-    )
-)
-if "!SAME!"=="0" (
-    echo [ERROR] aborting %ID% to keep the previous pet intact >> "%LOG%"
-    rmdir /S /Q "%TMP%"
-    exit /b 1
-)
-if exist "%DST%" rmdir /S /Q "%DST%"
-ren "%TMP%" "%ID%"
-if errorlevel 1 (
-    echo [ERROR] rename failed for %ID% >> "%LOG%"
-    rmdir /S /Q "%TMP%"
-    exit /b 1
-)
-echo [OK] %ID% installed to %DST% >> "%LOG%"
-exit /b 0
-
-:write_config
+REM stage 4: point the desktop pet selector at the codex-compatible pet.
+REM Inlined instead of call :write_config: calling a label that sits right
+REM after another label's exit /b made cmd.exe leave an empty staging dir
+REM behind during installs, so the config step runs in place here instead.
 set "HOME_DIR=%USERPROFILE%"
 if defined CODEX_HOME set "HOME_DIR=%CODEX_HOME%"
 set "CFG=%HOME_DIR%@BS@config.toml"
@@ -225,6 +179,54 @@ if "!CFG_STATE!"=="" (
     echo [ERROR] config step returned no result >> "%LOG%"
     exit /b 1
 )
+
+REM sweep stale staging dirs left behind by an interrupted earlier install
+for /d %%D in ("%PET_DIR%@BS@.huhu-*-installing") do rmdir /S /Q "%%D"
+
+echo.
+echo Install finished. Restart DSH or Codex, then pick 胡胡 in settings.
+exit /b 0
+
+:install_pet
+set "ID=%~1"
+set "SRC=%PKG_DIR%pet@BS@%ID%"
+set "DST=%PET_DIR%@BS@%ID%"
+set "TMP=%PET_DIR%@BS@.%ID%-installing"
+echo [%date% %time%] installing %ID% >> "%LOG%"
+if not exist "%SRC%" (
+    echo [ERROR] source directory missing: %SRC% >> "%LOG%"
+    echo [ERROR] source directory missing: %SRC%
+    exit /b 1
+)
+if exist "%TMP%" rmdir /S /Q "%TMP%"
+if not exist "%PET_DIR%" mkdir "%PET_DIR%"
+REM a trailing backslash makes xcopy copy the source CONTENTS, not the dir
+xcopy /E /I /Y "%SRC%@BS@" "%TMP%" >nul
+if errorlevel 1 (
+    echo [ERROR] copy failed for %ID% >> "%LOG%"
+    rmdir /S /Q "%TMP%"
+    exit /b 1
+)
+REM verify the staged copy against the source before the rename replaces the
+REM live pet. robocopy /L is list-only and never touches either dir: exit 0
+REM means the trees match; 1 or more means a file differs, is missing or is
+REM extra. The old for/R + fc loop was dead code: for/R yields absolute
+REM paths on this build, and its directory guard skipped every regular file.
+robocopy "%SRC%" "%TMP%" /L /E /NJH /NJS /NFL /NDL /NC /NS /NP >nul
+if errorlevel 1 (
+    echo [ERROR] staged copy differs from the source for %ID% >> "%LOG%"
+    rmdir /S /Q "%TMP%"
+    exit /b 1
+)
+echo [OK] staged copy matches the source for %ID% >> "%LOG%"
+if exist "%DST%" rmdir /S /Q "%DST%"
+ren "%TMP%" "%ID%"
+if errorlevel 1 (
+    echo [ERROR] rename failed for %ID% >> "%LOG%"
+    rmdir /S /Q "%TMP%"
+    exit /b 1
+)
+echo [OK] %ID% installed to %DST% >> "%LOG%"
 exit /b 0
 '''
 
@@ -300,8 +302,11 @@ if "%~1"=="" (
     set "PET_DIR=%~1"
 )
 
-set "TS=%date:~0,8%%time:~0,2%%time:~3,2%%time:~6,2%"
-set "TS=!TS: =0!"
+REM %date% is locale dependent: on a YYYY/MM/DD machine ~0,8 yields
+REM 2026/09/ (no day, and with slashes) which landed inside the backup
+REM FILENAME and made Copy-Item fail. Get-Date is locale independent.
+set "TS=manual"
+for /f "delims=" %%T in ('powershell -NoProfile -NoLogo -Command "Get-Date -Format yyyyMMddHHmmss"') do set "TS=%%T"
 set "LOG_DIR=%LOCALAPPDATA%@BS@HuhuPet"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 set "LOG=%LOG_DIR%@BS@huhu-uninstall-!TS!.log"

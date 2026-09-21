@@ -51,7 +51,7 @@ def test_readme_states_the_restart_requirement_and_the_config_key():
 
 def test_installer_has_every_guard_the_spec_requires():
     text = (PKG / '安装胡胡.cmd').read_text(encoding='utf-8')
-    for marker in ['HUHU-EDITION.txt', 'edition=huhu-carrot-v1', 'fc /B',
+    for marker in ['HUHU-EDITION.txt', 'edition=huhu-carrot-v1', 'robocopy',
                    '-installing', 'ren "%TMP%" "%ID%"', 'HUHU_YES', 'pause',
                    'CODEX_HOME', 'xcopy', '_huhu-config.ps1', 'chcp 65001']:
         assert marker in text, marker
