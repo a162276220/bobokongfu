@@ -64,12 +64,7 @@ def test_zip_round_trip_matches_the_package_dir(tmp_path):
 def test_installer_runs_end_to_end_against_a_sandbox(tmp_path):
     pets = tmp_path / 'pets'
     config = tmp_path / 'config.toml'
-    config.write_text('''[desktop]
-theme = "dark"
-
-[other]
-x = 1
-''', encoding='utf-8')
+    config.write_bytes(b'[desktop]\ntheme = "dark"\n\n[other]\nx = 1\n')
     env = os.environ.copy()
     env['HUHU_YES'] = '1'
     env['CODEX_HOME'] = str(tmp_path)
@@ -86,6 +81,13 @@ x = 1
     assert 'selected-avatar-id = "custom:huhu-carrot-office"' in text
     assert '[other]' in text and 'x = 1' in text
     assert list(config.parent.glob(config.name + '.huhu-*.bak')), 'config backup missing'
+    raw = config.read_bytes()
+    assert not raw.startswith(b'\xef\xbb\xbf'), 'installer must not add a UTF-8 BOM'
+    assert b'\r\n' not in raw, 'installer must preserve the file line endings'
+    import tomllib
+    parsed = tomllib.loads(raw.decode('utf-8'))
+    assert parsed['desktop']['selected-avatar-id'] == 'custom:huhu-carrot-office'
+    assert parsed['other']['x'] == 1
 
 
 def test_installer_refuses_a_directory_without_the_edition_marker(tmp_path):

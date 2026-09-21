@@ -2587,7 +2587,7 @@ Write-Host 'WROTE'
    - 键等于 custom:bubu：KEPT-OTHER-VALUE，文件逐字未变，备份已建。
    - 没有任何 [desktop] 段：WROTE，在文件末尾追加空行加 [desktop] 加该键，备份已建。
    - 额外交付一个双 [desktop] 段的用例，确认写入落在最后一个段里，没有误插到中间的段。
-3. 已知残留：PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 UTF-8 BOM，所以原本无 BOM 的 config.toml 会被加上 BOM。TOML 解析器一般容忍文件首的 BOM，但本机没有 Codex 的实现可验证。记录在这里，不假装已解决；真要规避得改成 .NET 的 [System.IO.File]::WriteAllLines 配无 BOM 的 UTF8Encoding($false)，代价是脚本变长且脱离纯 cmdlet 风格。
+3. 已知残留：PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 UTF-8 BOM，所以原本无 BOM 的 config.toml 会被加上 BOM。当时记「TOML 解析器一般容忍文件首的 BOM」，此假设后被证伪（Python 3.12 标准库 tomllib 直接拒绝），问题已在任务 10 执行修正 9 用 .NET 无 BOM 写入彻底修复；另发现 Set-Content 顺带把 LF 改成 CRLF，一并修复。
 
 ## 任务 10：发布包组装与 zip（package_release.py）
 
@@ -2884,6 +2884,8 @@ zip 会落在工作区内的 release 目录，交付时再由用户复制到 Dow
 5. zip 只写文件条目（ZipInfo 加 writestr，不写显式目录条目），verify_zip 也按文件比对；测试的 infolist() 带 is_file() 过滤。与计划文本无出入，记录备查。
 6. 计划步骤 7 写的是 git add -A，不能照做：当时工作区里有并行进行、未提交的「状态底图帧」原型（build_frames.py、图集、对应测试等），add -A 会把它们混进任务 10 的提交。改为显式文件清单提交：tools/build_installers.py、tools/package_release.py、tests/test_build_installers.py、tests/test_package_release.py、docs/superpowers/plans/2026-09-20-huhu-carrot-pet.md、.gitignore。
 7. .gitignore 里的 pet/huhu-carrot-office/spritesheet-win-1.webp 是任务 5 的笔误（实际文件是 .png），一并改为 .png。
+8. 安装器与卸载器的默认配置路径少写了 .codex 一层：HOME_DIR 被设成 %USERPROFILE%，实际找 %USERPROFILE%\config.toml；规格明文是「未设置 %CODEX_HOME% 时用 %USERPROFILE% 下的 .codex 目录」（计划 2212 行；宠物目录 PET_DIR 一直是 %USERPROFILE%\.codex\pets，只有配置目录漏了）。发现途径是用户在真实机器上跑安装：10:16 的日志记着 WARN config.toml not found at C:\Users\HUAWEI\config.toml，而用户的真实配置在 C:\Users\HUAWEI\.codex\config.toml 从未被写入。TDD：新增测试断言生成的安装与卸载 cmd 的默认 HOME_DIR 都是 %USERPROFILE%\.codex 且旧形态不存在，红（实际是 %USERPROFILE%）后改模板的 INSTALL_CMD 与 UNINSTALL_CMD 两处，再跑 python tools/build_installers.py 重新生成后转绿；全量 68/68。真实修复证据：改后重新安装，日志记 [OK] config.toml updated: selected-avatar-id = custom:huhu-carrot-office，且 config.toml.huhu-20260921103447.bak 备份生成。计划 2388 与 2495 行的模板仍显示旧的 HOME_DIR 形态，按本文件惯例保留，以生成器与这两条修正为准。zip 已按修复重建（3,432,350 字节，64 个文件），Downloads 与 release 两处同名文件一致。
+9. config.toml 重写被 PowerShell 5.1 的 Set-Content -Encoding UTF8 污染：任务 9 修正 3 当时记的是「TOML 解析器一般容忍 BOM」，该假设被证伪——Python 3.12 标准库 tomllib（TOML 1.0 规范，BOM 属非法起始字节）直接拒绝带 BOM 的文件，报 Invalid statement (at line 1, column 1)；且 Set-Content 顺带把纯 LF 的文件整体改成 CRLF（实测对照：备份无 BOM 纯 LF，重写后 BOM 加 CRLF）。也就是说用户装完宠物，config.toml 变成标准 TOML 解析器读不了的状态。修复：_huhu-config.ps1 改走 .NET——ReadAllBytes 读入、剥掉文件首的 BOM（如果有）、按原文件行尾（LF 或 CRLF）重写、WriteAllText 配 UTF8Encoding($false) 保证不写 BOM；插入位置仍走原有 $out 行数组逻辑（最后一个 [desktop] 段内），WriteAllText 写入 $out 用原行尾 join。TDD：e2e 沙箱测试的 config 夹具改为无 BOM 纯 LF 字节，新增三条断言——重写后无 BOM、无 CRLF、tomllib 解析成功且 desktop 段带 selected-avatar-id 与 other 段原值；另有生成器标记测试断言 ps1 不再含 Set-Content、改用 [System.IO.File]::WriteAllText 与 [System.Text.UTF8Encoding]::new($false)。全量 69/69。真实修复证据：用户机器上已被旧版写坏的 config.toml 已就地修复（剥 BOM、CRLF 还原为 LF），tomllib 解析通过、desktop.selected-avatar-id 为 custom:huhu-carrot-office，备份 config.toml.huhu-20260921103447.bak 未动。注：修复后的文件重跑新版安装器会命中「已有 selected-avatar-id 且值相同」的 ALREADY-SET 分支、跳过写入，文件保持无 BOM；Downloads 里旧版解压出来的安装器（修复前构建）已过期，重装请用重建后的 zip。
 
 ## 交付与验收清单
 
@@ -2896,7 +2898,7 @@ zip 会落在工作区内的 release 目录，交付时再由用户复制到 Dow
 5. 校验报告：pet/huhu-carrot/validation.json 与 pet/huhu-carrot-office/validation.json，两个 ok 都是 true。来源：任务 7。
 6. 校验和：发布包内 CHECKSUMS-SHA256.txt，覆盖全部随包文件。来源：任务 10。
 7. zip 自检：所有条目为正斜杠路径，中文条目带 0x800 UTF-8 标志，解压回读逐字节一致。来源：任务 10。
-8. 安装器实测：安装胡胡.cmd 对沙箱目录跑通，宠物落地、字节比对通过、临时目录不残留、config.toml 的 [desktop] 段被正确插入、[other] 段未被破坏、备份文件生成。来源：任务 10 的 test_installer_runs_end_to_end_against_a_sandbox。
+8. 安装器实测：安装胡胡.cmd 对沙箱目录跑通，宠物落地、字节比对通过、临时目录不残留、config.toml 的 [desktop] 段被正确插入、[other] 段未被破坏、备份文件生成、重写后无 BOM 且原行尾保留、标准库 tomllib 可解析。来源：任务 10 的 test_installer_runs_end_to_end_against_a_sandbox。
 
 另有两条需要用户在自己机器上确认，本计划无法代为验证，交付时如实说明：
 

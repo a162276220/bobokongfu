@@ -156,7 +156,7 @@ REM stage 4: point the desktop pet selector at the codex-compatible pet.
 REM Inlined instead of call :write_config: calling a label that sits right
 REM after another label's exit /b made cmd.exe leave an empty staging dir
 REM behind during installs, so the config step runs in place here instead.
-set "HOME_DIR=%USERPROFILE%"
+set "HOME_DIR=%USERPROFILE%@BS@.codex"
 if defined CODEX_HOME set "HOME_DIR=%CODEX_HOME%"
 set "CFG=%HOME_DIR%@BS@config.toml"
 set "CFG_STATE="
@@ -251,7 +251,11 @@ if ($BackupPath -ne '') {
     Copy-Item -LiteralPath $ConfigPath -Destination $BackupPath -Force
 }
 
-$lines = @(Get-Content -LiteralPath $ConfigPath)
+$raw = [System.IO.File]::ReadAllBytes($ConfigPath)
+if ($raw.Length -ge 3 -and $raw[0] -eq 0xEF -and $raw[1] -eq 0xBB -and $raw[2] -eq 0xBF) { $raw = $raw[3..($raw.Length - 1)] }
+$rawText = [System.Text.Encoding]::UTF8.GetString($raw)
+if ($rawText -like "*`r`n*") { $nl = "`r`n" } else { $nl = "`n" }
+$lines = @($rawText -split "`r?`n")
 $hits = @()
 for ($i = 0; $i -lt $lines.Count; $i++) {
     if ($lines[$i] -like ('*' + $Key + '*')) { $hits += $i }
@@ -283,7 +287,8 @@ if ($desktop.Count -eq 0) {
     if ($end + 1 -lt $lines.Count) { $tail = @($lines[($end + 1)..($lines.Count - 1)]) }
     $out = @($lines[0..$end]) + @($ValueLine) + $tail
 }
-$out | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
+$outText = $out -join $nl
+[System.IO.File]::WriteAllText($ConfigPath, $outText, [System.Text.UTF8Encoding]::new($false))
 Write-Host 'WROTE'
 '''
 
@@ -315,7 +320,7 @@ echo [%date% %time%] uninstall start pets=%PET_DIR% > "%LOG%"
 call :remove_pet huhu-carrot
 call :remove_pet huhu-carrot-office
 
-set "HOME_DIR=%USERPROFILE%"
+set "HOME_DIR=%USERPROFILE%@BS@.codex"
 if defined CODEX_HOME set "HOME_DIR=%CODEX_HOME%"
 set "CFG=%HOME_DIR%@BS@config.toml"
 if exist "%CFG%" (

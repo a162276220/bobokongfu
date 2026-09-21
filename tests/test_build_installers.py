@@ -67,10 +67,24 @@ def test_uninstaller_restores_the_config_backup():
     assert '@BS@' not in text
 
 
+def test_config_default_points_at_the_dot_codex_home_like_the_pet_dir():
+    for name in ['安装胡胡.cmd', '卸载胡胡-Windows.cmd']:
+        text = (PKG / name).read_text(encoding='utf-8')
+        assert 'set "HOME_DIR=%USERPROFILE%\\.codex"' in text, name
+        assert 'set "HOME_DIR=%USERPROFILE%"' not in text, name
+
+
 def test_config_script_reports_each_outcome_distinctly():
     text = (PKG / '_huhu-config.ps1').read_text(encoding='utf-8')
     for marker in ['param(', '$ConfigPath', "$Key = 'selected-avatar-id'",
                    "$Value = 'custom:huhu-carrot-office'", 'WROTE', 'ALREADY-SET',
                    'KEPT-OTHER-VALUE', 'SKIPPED']:
         assert marker in text, marker
-    assert 'Set-Content' in text
+    assert 'Set-Content' not in text
+
+
+def test_config_script_writes_without_bom_and_keeps_line_endings():
+    text = (PKG / '_huhu-config.ps1').read_text(encoding='utf-8')
+    assert 'Set-Content' not in text
+    assert 'WriteAllText' in text
+    assert '[System.Text.UTF8Encoding]::new($false)' in text
