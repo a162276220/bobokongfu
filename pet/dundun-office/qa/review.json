@@ -1,0 +1,112 @@
+{
+  "petId": "dundun-office",
+  "kind": "sprite2d",
+  "strict": false,
+  "ok": true,
+  "fails": [],
+  "warns": [],
+  "checks": [
+    {
+      "check": "geometry:atlas-size-exact",
+      "level": "error",
+      "ok": true,
+      "detail": "(1536, 1872) expected (1536, 1872) (9 rows)"
+    },
+    {
+      "check": "geometry:unused-cells-clear",
+      "level": "error",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "geometry:cells-within-bounds",
+      "level": "error",
+      "ok": true,
+      "detail": "min margin 1 px"
+    },
+    {
+      "check": "geometry:no-baked-background",
+      "level": "error",
+      "ok": true,
+      "detail": "max coverage 0.438, max near-white share 0.003"
+    },
+    {
+      "check": "consistency:row-scale-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "worst running-right area ratio 1.261 (limit 1.35)"
+    },
+    {
+      "check": "consistency:cross-row-proportions",
+      "level": "error",
+      "ok": true,
+      "detail": "neutral-frame height ratio 1.189, area ratio 1.202"
+    },
+    {
+      "check": "consistency:baseline-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "max in-row bottom span 7 px, across row medians 2.0 px"
+    },
+    {
+      "check": "consistency:palette-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "max mean-colour distance 2.8"
+    },
+    {
+      "check": "consistency:subject-dominance",
+      "level": "error",
+      "ok": true,
+      "detail": "smallest largest-component share 1.0000 at -"
+    },
+    {
+      "check": "consistency:key-colour-absent",
+      "level": "error",
+      "ok": true,
+      "detail": "magenta 0 / 24, pure green 0 / 96"
+    },
+    {
+      "check": "animation:row-frame-counts",
+      "level": "error",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "animation:loop-seam-continuous",
+      "level": "error",
+      "ok": true,
+      "detail": "worst idle seam ratio 1.000"
+    },
+    {
+      "check": "animation:row-motion-present",
+      "level": "warn",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "animation:states-distinct-from-idle",
+      "level": "error",
+      "ok": true,
+      "detail": "8 rows compared, floor 798 px"
+    },
+    {
+      "check": "fitness:idle-first-frame-usable",
+      "level": "error",
+      "ok": true,
+      "detail": "opaque 15731 px, bbox (18, 205, 31, 160)"
+    },
+    {
+      "check": "fitness:idle-calmest-row",
+      "level": "warn",
+      "ok": true,
+      "detail": "idle 735006 vs median 2753240"
+    },
+    {
+      "check": "preview:gif-geometry",
+      "level": "warn",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "id": "bear-fishing",
+  "displayName": "钓鱼小熊版",
+  "description": "钓鱼小熊宠物；待机时自己轮换 6 种表情，点击会点头回应，被拖动会挣扎，等久了打盹。",
+  "outputs": {
+    "sprite2d": {
+      "petId": "bear-fishing",
+      "spritesheet": "spritesheet.png",
+      "source": "sheet",
+      "spriteVersionNumber": 2,
+      "rowNames": [
+        "idle",
+        "running-right",
+        "running-left",
+        "waving",
+        "jumping",
+        "failed",
+        "waiting",
+        "running",
+        "review",
+        "gaze-1",
+        "gaze-2"
+      ],
+      "tracks": {
+        "failed": {
+          "kind": "once",
+          "fallback": "idle"
+        },
+        "gaze-1": {
+          "kind": "set"
+        },
+        "gaze-2": {
+          "kind": "set"
+        }
+      }
+    }
+  },
+  "previews": {
+    "style": "sheet",
+    "dir": "pet/bear-fishing/preview",
+    "frameMs": 200
+  }
+}

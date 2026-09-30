@@ -1,0 +1,112 @@
+{
+  "petId": "carrot-peach",
+  "kind": "sprite2d",
+  "strict": false,
+  "ok": true,
+  "fails": [],
+  "warns": [],
+  "checks": [
+    {
+      "check": "geometry:atlas-size-exact",
+      "level": "error",
+      "ok": true,
+      "detail": "(1536, 2288) expected (1536, 2288) (11 rows)"
+    },
+    {
+      "check": "geometry:unused-cells-clear",
+      "level": "error",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "geometry:cells-within-bounds",
+      "level": "error",
+      "ok": true,
+      "detail": "min margin 2 px"
+    },
+    {
+      "check": "geometry:no-baked-background",
+      "level": "error",
+      "ok": true,
+      "detail": "max coverage 0.711, max near-white share 0.000"
+    },
+    {
+      "check": "consistency:row-scale-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "worst running height ratio 1.182 (limit 1.35)"
+    },
+    {
+      "check": "consistency:cross-row-proportions",
+      "level": "error",
+      "ok": true,
+      "detail": "neutral-frame height ratio 1.111, area ratio 1.387"
+    },
+    {
+      "check": "consistency:baseline-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "max in-row bottom span 19 px, across row medians 2.0 px"
+    },
+    {
+      "check": "consistency:palette-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "max mean-colour distance 16.3"
+    },
+    {
+      "check": "consistency:subject-dominance",
+      "level": "error",
+      "ok": true,
+      "detail": "smallest largest-component share 1.0000 at -"
+    },
+    {
+      "check": "consistency:key-colour-absent",
+      "level": "error",
+      "ok": true,
+      "detail": "magenta 0 / 24, pure green 0 / 96"
+    },
+    {
+      "check": "animation:row-frame-counts",
+      "level": "error",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "animation:loop-seam-continuous",
+      "level": "error",
+      "ok": true,
+      "detail": "worst waiting seam ratio 1.139; not repeating: failed:once, gaze-1:set, gaze-2:set"
+    },
+    {
+      "check": "animation:row-motion-present",
+      "level": "warn",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "animation:states-distinct-from-idle",
+      "level": "error",
+      "ok": true,
+      "detail": "10 rows compared, floor 798 px"
+    },
+    {
+      "check": "fitness:idle-first-frame-usable",
+      "level": "error",
+      "ok": true,
+      "detail": "opaque 28388 px, bbox (3, 202, 5, 185)"
+    },
+    {
+      "check": "fitness:idle-calmest-row",
+      "level": "warn",
+      "ok": true,
+      "detail": "idle 887371 vs median 1652117"
+    },
+    {
+      "check": "preview:gif-geometry",
+      "level": "warn",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

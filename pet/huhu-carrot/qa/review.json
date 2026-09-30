@@ -1,0 +1,94 @@
+{
+  "petId": "huhu-carrot",
+  "kind": "frames2d",
+  "strict": false,
+  "ok": true,
+  "fails": [],
+  "warns": [],
+  "checks": [
+    {
+      "check": "geometry:cells-within-bounds",
+      "level": "error",
+      "ok": true,
+      "detail": "min margin 3 px"
+    },
+    {
+      "check": "geometry:no-baked-background",
+      "level": "error",
+      "ok": true,
+      "detail": "max coverage 0.396, max near-white share 0.005"
+    },
+    {
+      "check": "consistency:row-scale-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "worst idle area ratio 1.063 (limit 1.35)"
+    },
+    {
+      "check": "consistency:cross-row-proportions",
+      "level": "error",
+      "ok": true,
+      "detail": "neutral-frame height ratio 1.042, area ratio 1.099"
+    },
+    {
+      "check": "consistency:baseline-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "max in-row bottom span 16 px, across row medians 5.0 px"
+    },
+    {
+      "check": "consistency:palette-stable",
+      "level": "error",
+      "ok": true,
+      "detail": "max mean-colour distance 2.3"
+    },
+    {
+      "check": "consistency:subject-dominance",
+      "level": "error",
+      "ok": true,
+      "detail": "smallest largest-component share 1.0000 at -"
+    },
+    {
+      "check": "consistency:key-colour-absent",
+      "level": "error",
+      "ok": true,
+      "detail": "magenta 0 / 24, pure green 0 / 96"
+    },
+    {
+      "check": "animation:loop-seam-continuous",
+      "level": "error",
+      "ok": true,
+      "detail": "worst review seam ratio 1.000; not repeating: done:once, failed:once"
+    },
+    {
+      "check": "animation:row-motion-present",
+      "level": "warn",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "animation:states-distinct-from-idle",
+      "level": "error",
+      "ok": true,
+      "detail": "6 rows compared, floor 798 px"
+    },
+    {
+      "check": "fitness:idle-first-frame-usable",
+      "level": "error",
+      "ok": true,
+      "detail": "opaque 14894 px, bbox (32, 202, 31, 159)"
+    },
+    {
+      "check": "fitness:idle-calmest-row",
+      "level": "warn",
+      "ok": true,
+      "detail": "idle 591911 vs median 1358152"
+    },
+    {
+      "check": "preview:gif-geometry",
+      "level": "warn",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

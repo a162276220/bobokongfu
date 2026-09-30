@@ -1,0 +1,240 @@
+{
+  "id": "huhu-carrot",
+  "displayName": "胡胡",
+  "description": "胡萝卜毛绒玩偶；会呼吸、眨眼，并随会话状态变化。",
+  "version": "1.0.0",
+  "author": "a162276220",
+  "license": "User-supplied source; personal use only",
+  "base": "assets/derived/base.huhu.png",
+  "eyes": "assets/derived/eye-regions.json",
+  "remarks": {
+    "pet": [
+      "胡萝卜脑袋被你摸到了～",
+      "嘿嘿，别蹭我叶子啦。",
+      "再摸一下嘛，就一下。"
+    ],
+    "petCooldown": [
+      "刚才被摸过啦，歇一会儿。"
+    ],
+    "feed": [
+      "这不是小鱼干，但我不挑。",
+      "谢谢投喂，胡萝卜味的。"
+    ],
+    "feedCooldown": [
+      "吃不下了，今天糖分超标。"
+    ],
+    "noTreats": [
+      "我自带糖分，不用投喂啦。"
+    ]
+  },
+  "voice": {
+    "status": {
+      "prepare": [
+        "准备开工，叶子精神得很。",
+        "深呼吸，开始吧。"
+      ],
+      "waiting": [
+        "在这儿等你下命令。",
+        "暂停待命中，随时出发。"
+      ],
+      "thinking": [
+        "正在想事情……",
+        "胡萝卜里也在思考。"
+      ],
+      "review": [
+        "我在检查，别催。",
+        "再过一遍更稳。"
+      ],
+      "toolResult": [
+        "收到结果了，继续。",
+        "这一步有数了。"
+      ],
+      "done": [
+        "搞定！撒个小欢。",
+        "完成，今天糖分满分。"
+      ],
+      "failed": [
+        "哎呀，没做成。",
+        "再来一次说不定就成了。"
+      ]
+    },
+    "whispers": {
+      "categories": {
+        "thinking": [
+          "脑子转起来了。",
+          "有点头绪了。"
+        ],
+        "writing": [
+          "一笔一笔地写。",
+          "慢慢来，别急。"
+        ],
+        "reading": [
+          "我在看，看得挺慢。",
+          "这段有点绕。"
+        ]
+      },
+      "results": {
+        "pass": [
+          "过了，稳。",
+          "验收通过，开心。"
+        ],
+        "fail": [
+          "没过……我看看。",
+          "再来一轮。"
+        ],
+        "done": [
+          "收工，撒个欢。"
+        ]
+      }
+    },
+    "panel": {
+      "labels": {
+        "feed": "投喂",
+        "rename": "改名",
+        "hide": "先躲起来",
+        "confirm": "确定"
+      },
+      "stats": {
+        "rank": "胡萝卜等级 {rank}",
+        "treats": "小鱼干 {n} 条",
+        "points": "{points} 分"
+      },
+      "actions": [
+        "feed",
+        "rename",
+        "hide"
+      ]
+    }
+  },
+  "outputs": {
+    "frames2d": {
+      "petId": "huhu-carrot",
+      "dir": "frames",
+      "defaultFrameMs": 200,
+      "spec": "assets/derived/frames-spec.json",
+      "tracks": {
+        "idle": {
+          "frameMs": { "value": 260, "override": { "11": 150, "12": 150 }, "count": 16 },
+          "blink": { "11": 1.0, "12": 0.5 },
+          "motion": [
+            { "target": "scale", "kind": "raised-cos", "offset": 0.985, "amp": 0.030 },
+            { "target": "dy", "kind": "sin", "amp": 2.0 }
+          ]
+        },
+        "waiting": {
+          "frameMs": { "value": 180, "override": {}, "count": 6 },
+          "motion": [
+            { "target": "scale", "kind": "raised-cos", "offset": 0.990, "amp": 0.020 },
+            { "target": "dx", "kind": "sin", "amp": 3.0 }
+          ]
+        },
+        "thinking": {
+          "frameMs": { "value": 140, "override": {}, "count": 6 },
+          "motion": [
+            { "target": "scale", "kind": "raised-cos", "offset": 0.995, "amp": 0.015 },
+            { "target": "rotate_deg", "kind": "raised-cos", "offset": -3.0, "amp": -1.0 }
+          ]
+        },
+        "tool": {
+          "frameMs": { "value": 110, "override": {}, "count": 8 },
+          "motion": [
+            { "target": "scale", "kind": "square", "offset": 0.988, "amp": 0.012, "cycles": 4 },
+            { "target": "dx", "kind": "sin", "amp": 3.0 },
+            { "target": "rotate_deg", "kind": "sin", "amp": 2.5 }
+          ]
+        },
+        "review": {
+          "frameMs": { "value": 160, "override": {}, "count": 6 },
+          "motion": [
+            { "target": "rotate_deg", "kind": "sin", "amp": 4.0 }
+          ]
+        },
+        "done": {
+          "frameMs": { "value": 130, "override": {}, "count": 4 },
+          "loop": false,
+          "fallback": "idle",
+          "motion": [
+            { "target": "dy", "kind": "arc", "amp": -16.0 },
+            { "target": "squash_y", "kind": "arc", "offset": 1.0, "amp": 0.04 },
+            { "target": "squash_x", "kind": "arc", "offset": 1.0, "amp": -0.04 }
+          ]
+        },
+        "failed": {
+          "frameMs": { "value": 150, "override": {}, "count": 4 },
+          "loop": false,
+          "fallback": "idle",
+          "motion": [
+            { "target": "scale", "kind": "const", "offset": 0.96 },
+            { "target": "rotate_deg", "kind": "sin", "amp": 1.5 }
+          ]
+        }
+      }
+    },
+    "sprite2d": {
+      "petId": "huhu-carrot-office",
+      "spritesheet": "spritesheet-win-1.png",
+      "spec": "assets/derived/atlas-spec.json",
+      "sequences": { "idle": ["idle", "idle", "waving", "idle", "running-left"] },
+      "rows": {
+        "idle": {
+          "durations": { "value": 400, "override": {}, "count": 8 },
+          "blink": { "6": 1.0, "7": 0.45 },
+          "motion": [
+            { "target": "scale", "kind": "raised-cos", "offset": 0.985, "amp": 0.030 },
+            { "target": "dy", "kind": "sin", "amp": 2.0 }
+          ]
+        },
+        "running-right": {
+          "from": "tool",
+          "durations": { "value": 110, "override": {}, "count": 8 }
+        },
+        "running-left": {
+          "durations": { "value": 160, "override": {}, "count": 6 },
+          "vectors": { "sway": [0.0, 4.0, 5.0, 0.0, -4.0, -5.0] },
+          "motion": [
+            { "target": "rotate_deg", "kind": "values", "values": "sway" }
+          ]
+        },
+        "waving": {
+          "durations": { "value": 140, "override": {}, "count": 6 },
+          "vectors": { "lift": [0.0, 0.62, 1.0, 0.62, 0.18, 0.0] },
+          "motion": [
+            { "target": "dy", "kind": "values", "values": "lift", "amp": -12.0 },
+            { "target": "squash_y", "kind": "values", "values": "lift", "offset": 1.0, "amp": 0.035 },
+            { "target": "squash_x", "kind": "values", "values": "lift", "offset": 1.0, "amp": -0.035 }
+          ]
+        },
+        "jumping": {
+          "from": "done",
+          "durations": { "value": 130, "override": {}, "count": 4 },
+          "loop": false,
+          "fallback": "idle"
+        },
+        "failed": {
+          "from": "failed",
+          "durations": { "value": 150, "override": {}, "count": 4 },
+          "loop": false,
+          "fallback": "idle"
+        },
+        "waiting": {
+          "from": "waiting",
+          "durations": { "value": 180, "override": {}, "count": 6 }
+        },
+        "running": {
+          "from": "thinking",
+          "durations": { "value": 140, "override": {}, "count": 6 }
+        },
+        "review": {
+          "from": "review",
+          "durations": { "value": 160, "override": {}, "count": 6 }
+        }
+      }
+    }
+  },
+  "previews": {
+    "style": "classic",
+    "dir": "preview",
+    "static": "huhu-static.png",
+    "transparent": "huhu-transparent-check.png"
+  }
+}

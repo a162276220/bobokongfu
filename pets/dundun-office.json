@@ -1,0 +1,117 @@
+{
+  "id": "dundun-office",
+  "displayName": "墩墩",
+  "description": "圆滚滚的橙色绒团，顶着比身体还宽的一蓬叶子；会呼吸、眨眼，全身弹跳着移动。",
+  "base": "assets/derived/base.dundun.png",
+  "eyes": [[79.0, 138.0, 15.0, 19.0], [113.0, 138.0, 15.0, 19.0]],
+  "remarks": {
+    "pet": [
+      "被你戳到一个坑，等我慢慢弹回来。",
+      "嘿嘿，叶子痒痒的。",
+      "再揉就扁了啦。"
+    ],
+    "petCooldown": [
+      "绒毛都塌了，歇一会儿。"
+    ],
+    "feed": [
+      "圆肚子又圆了一圈。",
+      "谢谢投喂，全部存进绒毛里。"
+    ],
+    "feedCooldown": [
+      "吃不动了，已经在滚了。"
+    ],
+    "noTreats": [
+      "我不挑，但我饱了。"
+    ]
+  },
+  "outputs": {
+    "sprite2d": {
+      "petId": "dundun-office",
+      "spritesheet": "spritesheet-dundun.png",
+      "blinkStage": "after",
+      "sequences": { "idle": ["idle", "idle", "waving", "idle", "running-left"] },
+      "rows": {
+        "idle": {
+          "durations": { "value": 400, "override": {}, "count": 8 },
+          "blink": { "2": 1.0, "6": 1.0 },
+          "motion": [
+            { "target": "squash_x", "kind": "sin", "offset": 1.0, "amp": 0.02 },
+            { "target": "squash_y", "kind": "sin", "offset": 1.0, "amp": -0.02 }
+          ]
+        },
+        "running-right": {
+          "durations": { "value": 110, "override": {}, "count": 8 },
+          "motion": [
+            { "target": "squash_x", "kind": "cos", "offset": 1.07, "amp": -0.24 },
+            { "target": "squash_y", "kind": "volume", "of": "squash_x", "offset": 1.0, "amp": 0.45 },
+            { "target": "dx", "kind": "sin", "amp": 2.5 },
+            { "target": "rotate_deg", "kind": "sin", "amp": 2.0 }
+          ]
+        },
+        "running-left": {
+          "durations": { "value": 160, "override": {}, "count": 6 },
+          "motion": [
+            { "target": "squash_x", "kind": "cos", "offset": 1.07, "amp": -0.21 },
+            { "target": "squash_y", "kind": "volume", "of": "squash_x", "offset": 1.0, "amp": 0.45 },
+            { "target": "dx", "kind": "sin", "amp": -2.2 },
+            { "target": "rotate_deg", "kind": "sin", "amp": -2.0 }
+          ]
+        },
+        "waving": {
+          "durations": { "value": 140, "override": {}, "count": 6 },
+          "motion": [
+            { "target": "squash_x", "kind": "cos", "offset": 1.16, "amp": -0.19, "phase": 1.5707963267948966 },
+            { "target": "squash_y", "kind": "volume", "of": "squash_x", "offset": 1.0, "amp": 0.45 },
+            { "target": "dx", "kind": "sin", "amp": 1.5, "phase": 1.5707963267948966 },
+            { "target": "rotate_deg", "kind": "sin", "amp": 1.2, "phase": 1.5707963267948966 }
+          ]
+        },
+        "jumping": {
+          "durations": { "value": 130, "override": {}, "count": 4 },
+          "poses": [
+            { "squash_x": 1.12, "squash_y": 0.90 },
+            { "squash_x": 0.94, "squash_y": 1.06, "dy": -6.0 },
+            { "squash_x": 1.00, "squash_y": 1.02, "dy": -3.0 },
+            { "squash_x": 1.10, "squash_y": 0.92 }
+          ]
+        },
+        "failed": {
+          "durations": { "value": 150, "override": {}, "count": 4 },
+          "blink": [0.0, 1.0, 0.6, 0.0],
+          "poses": [
+            { "squash_x": 1.06, "squash_y": 0.94 },
+            { "squash_x": 1.16, "squash_y": 0.58 },
+            { "squash_x": 1.14, "squash_y": 0.62 },
+            { "squash_x": 1.04, "squash_y": 0.88 }
+          ]
+        },
+        "waiting": {
+          "durations": { "value": 180, "override": {}, "count": 6 },
+          "motion": [
+            { "target": "rotate_deg", "kind": "sin", "amp": 2.0, "phase": 1.0471975511965976 },
+            { "target": "dx", "kind": "sin", "amp": 1.2, "phase": 1.0471975511965976 }
+          ]
+        },
+        "running": {
+          "durations": { "value": 140, "override": {}, "count": 6 },
+          "motion": [
+            { "target": "squash_x", "kind": "sin", "offset": 1.0, "amp": 0.05, "phase": 1.5707963267948966 },
+            { "target": "squash_y", "kind": "sin", "offset": 1.0, "amp": -0.05, "phase": 1.5707963267948966 }
+          ]
+        },
+        "review": {
+          "durations": { "value": 160, "override": {}, "count": 6 },
+          "blink": { "3": 1.0 },
+          "motion": [
+            { "target": "rotate_deg", "kind": "sin", "amp": 1.6, "phase": 1.5707963267948966 }
+          ]
+        }
+      }
+    }
+  },
+  "previews": {
+    "style": "pack",
+    "dir": "pet/dundun-office/preview",
+    "after": ["jumping", "failed"]
+  }
+}

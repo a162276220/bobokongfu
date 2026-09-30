@@ -59,9 +59,9 @@
       "detail": "(1536, 1872) expected (1536, 1872)"
     },
     {
-      "check": "atlas-rows-classic-9",
+      "check": "frames-length-matches-atlas",
       "ok": true,
-      "detail": "atlasRows=9"
+      "detail": "9 vs atlasRows 9"
     },
     {
       "check": "frames-within-columns",
@@ -70,6 +70,11 @@
     },
     {
       "check": "spritesheet-cell-content",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "row-declarations-valid",
       "ok": true,
       "detail": ""
     },

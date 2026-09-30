@@ -1,0 +1,143 @@
+{
+  "id": "dundun-office",
+  "displayName": "墩墩",
+  "description": "圆滚滚的橙色绒团，顶着比身体还宽的一蓬叶子；会呼吸、眨眼，全身弹跳着移动。",
+  "spritesheetPath": "spritesheet-dundun.png",
+  "cell": {
+    "width": 192,
+    "height": 208
+  },
+  "columns": 8,
+  "frames": [
+    8,
+    8,
+    6,
+    6,
+    4,
+    4,
+    6,
+    6,
+    6
+  ],
+  "tracks": {
+    "idle": {
+      "durations": [
+        400,
+        400,
+        400,
+        400,
+        400,
+        400,
+        400,
+        400
+      ]
+    },
+    "running-right": {
+      "durations": [
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110
+      ]
+    },
+    "running-left": {
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160
+      ]
+    },
+    "waving": {
+      "durations": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ]
+    },
+    "jumping": {
+      "durations": [
+        130,
+        130,
+        130,
+        130
+      ]
+    },
+    "failed": {
+      "durations": [
+        150,
+        150,
+        150,
+        150
+      ]
+    },
+    "waiting": {
+      "durations": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180
+      ]
+    },
+    "running": {
+      "durations": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ]
+    },
+    "review": {
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160
+      ]
+    }
+  },
+  "sequences": {
+    "idle": [
+      "idle",
+      "idle",
+      "waving",
+      "idle",
+      "running-left"
+    ]
+  },
+  "remarks": {
+    "pet": [
+      "被你戳到一个坑，等我慢慢弹回来。",
+      "嘿嘿，叶子痒痒的。",
+      "再揉就扁了啦。"
+    ],
+    "petCooldown": [
+      "绒毛都塌了，歇一会儿。"
+    ],
+    "feed": [
+      "圆肚子又圆了一圈。",
+      "谢谢投喂，全部存进绒毛里。"
+    ],
+    "feedCooldown": [
+      "吃不动了，已经在滚了。"
+    ],
+    "noTreats": [
+      "我不挑，但我饱了。"
+    ]
+  }
+}

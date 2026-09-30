@@ -1,0 +1,32 @@
+{
+  "id": "raccoon-typing",
+  "displayName": "打工卜",
+  "description": "在电脑前打工的毛绒卜，悬停/拖拽/干活时会喝咖啡，眼神跟随鼠标。由单文件 tkinter 桌宠改造为 Qoder 宠物格式。",
+  "spriteVersionNumber": 2,
+  "spritesheetPath": "spritesheet.webp",
+  "rowNames": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review",
+    "gaze-1",
+    "gaze-2"
+  ],
+  "tracks": {
+    "failed": {
+      "kind": "once",
+      "fallback": "idle"
+    },
+    "gaze-1": {
+      "kind": "set"
+    },
+    "gaze-2": {
+      "kind": "set"
+    }
+  }
+}
