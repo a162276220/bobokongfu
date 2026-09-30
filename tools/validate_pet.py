@@ -18,7 +18,7 @@ TOP_KEYS = {'$schema', 'petManifestVersion', 'id', 'displayName', 'description',
             'version', 'author', 'license', 'homepage', 'renderer', 'sprite2d',
             'live2d', 'frames2d', 'sequences', 'remarks', 'gameplay'}
 FLAT_KEYS = {'id', 'displayName', 'description', 'spritesheetPath', 'spriteVersionNumber',
-             'cell', 'columns', 'frames', 'tracks', 'sequences', 'remarks'}
+             'cell', 'columns', 'frames', 'rowNames', 'tracks', 'sequences', 'remarks'}
 VOICE_KEYS = {'$schema', 'voicePackVersion', 'status', 'tools', 'toolRemaining',
               'whispers', 'panel', 'remarks', 'ranks'}
 SCENES = {'prepare', 'waiting', 'thinking', 'review', 'toolResult', 'done',
@@ -36,6 +36,16 @@ LOSSLESS_FORMATS = {'PNG', 'WEBP'}
 MS_MIN, MS_MAX = 16, 5000
 CELL_W, CELL_H, COLS, ROWS = 192, 208, 8, 9
 DEFAULT_FRAME_COUNTS = [6, 8, 8, 4, 5, 8, 6, 6, 6]
+# Engine pack format v2 (spriteVersionNumber 2): one extra row per platform
+# extension, every row always painted across all 8 columns, no per-row frame
+# declaration -- the engine derives used cells from painted content.
+V2_ATLAS_ROWS = 11
+V2_DEFAULT_FRAME_COUNTS = [8] * V2_ATLAS_ROWS
+# Per-row playback semantics a pet may declare in its own manifest: `loop`
+# repeats, `set` is a direction/pose set the engine picks from (no wrap-around
+# to keep continuous), `once` plays through and then falls back. Rows a pet
+# leaves undeclared are loops, which is what the engine assumes.
+ROW_KINDS = ('loop', 'set', 'once')
 POOL_MAX, LINE_MAX = 64, 160
 REMARK_LINE_MAX = 120
 LABEL_MAX, STAT_MAX = 40, 80
@@ -62,7 +72,7 @@ def _flatten_v2_sprite2d(doc):
     flat = {'id': doc.get('id'), 'displayName': doc.get('displayName'),
             'description': doc.get('description'),
             'spritesheetPath': block.get('spritesheetPath')}
-    for key in ('cell', 'columns', 'frames', 'tracks'):
+    for key in ('cell', 'columns', 'frames', 'rowNames', 'tracks'):
         if key in block:
             flat[key] = block[key]
     if block.get('atlasRows') == 11:
@@ -71,6 +81,72 @@ def _flatten_v2_sprite2d(doc):
         if key in doc:
             flat[key] = doc[key]
     return flat
+
+
+def row_kind(entry):
+    """Playback kind of one track entry; ``loop: false`` is the legacy spelling
+    of ``once``."""
+    if not isinstance(entry, dict):
+        return 'loop'
+    kind = entry.get('kind')
+    if kind in ROW_KINDS:
+        return kind
+    return 'once' if entry.get('loop') is False else 'loop'
+
+
+def resolve_row_names(doc, atlas_rows):
+    """Row names for the atlas: the pet's own ``rowNames``, then the classic
+    nine, then ``rowN``."""
+    declared = doc.get('rowNames')
+    names = [n for n in declared if isinstance(n, str)] if isinstance(declared, list) else []
+    for index in range(len(names), atlas_rows):
+        names.append(ROW_NAMES[index] if index < len(ROW_NAMES) else 'row%d' % index)
+    return names
+
+
+def check_row_declarations(doc, report, atlas_rows):
+    """Validate the pet's own row names and per-row playback kinds."""
+    names = doc.get('rowNames')
+    tracks = doc.get('tracks')
+    if names is None and tracks is None:
+        report.add('row-declarations-absent-ok', True)
+        return
+    problems = []
+    resolved = resolve_row_names(doc, atlas_rows)
+    if names is not None:
+        if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+            problems.append('rowNames:not-a-list-of-strings')
+        else:
+            if len(names) > atlas_rows:
+                problems.append('rowNames:longer-than-atlas')
+            bad = [n for n in names if not TRACK_NAME_PATTERN.fullmatch(n)]
+            if bad:
+                problems.append('rowNames:not-kebab:' + ', '.join(bad))
+            if len(set(names)) != len(names):
+                problems.append('rowNames:duplicate')
+    if isinstance(tracks, dict):
+        unknown = [k for k in tracks if k not in resolved]
+        if unknown:
+            problems.append('tracks:unknown-row:' + ', '.join(unknown))
+        for name, entry in tracks.items():
+            if not isinstance(entry, dict):
+                problems.append(name + ':not-an-object')
+                continue
+            if entry.get('kind') is not None and entry['kind'] not in ROW_KINDS:
+                problems.append(name + ':unknown-kind:' + str(entry['kind']))
+            if 'loop' in entry and not isinstance(entry['loop'], bool):
+                problems.append(name + ':loop-not-bool')
+            if row_kind(entry) == 'once':
+                fallback = entry.get('fallback')
+                target = tracks.get(fallback) or {}
+                if not (isinstance(fallback, str) and fallback in resolved
+                        and row_kind(target) != 'once'):
+                    problems.append(name + ':fallback-invalid')
+            if name == 'idle' and row_kind(entry) != 'loop':
+                problems.append('idle:must-repeat')
+    elif tracks is not None:
+        problems.append('tracks:not-an-object')
+    report.add('row-declarations-valid', not problems, '; '.join(problems))
 
 
 def check_manifest(doc, report):
@@ -159,39 +235,74 @@ def check_sprite2d(pet_dir, doc, report):
     report.add('spritesheet-format-lossless', img.format in LOSSLESS_FORMATS, str(img.format))
     report.add('spritesheet-mode-rgba', img.mode == 'RGBA', img.mode)
     columns = doc.get('columns', COLS)
-    atlas_rows = 11 if doc.get('spriteVersionNumber') == 2 else ROWS
-    frames = doc.get('frames', DEFAULT_FRAME_COUNTS)
+    is_v2 = doc.get('spriteVersionNumber') == 2
+    atlas_rows = V2_ATLAS_ROWS if is_v2 else ROWS
+    frames = doc.get('frames', V2_DEFAULT_FRAME_COUNTS if is_v2 else DEFAULT_FRAME_COUNTS)
     expected = (columns * CELL_W, atlas_rows * CELL_H)
     report.add('spritesheet-size', img.size == expected,
                str(img.size) + ' expected ' + str(expected))
-    report.add('atlas-rows-classic-9', atlas_rows == 9, 'atlasRows=' + str(atlas_rows))
+    report.add('frames-length-matches-atlas', len(frames) == atlas_rows,
+               str(len(frames)) + ' vs atlasRows ' + str(atlas_rows))
     report.add('frames-within-columns',
                all(isinstance(n, int) and 0 <= n <= columns for n in frames),
                str(frames))
     arr = np.asarray(img.convert('RGBA'))
     problems = []
-    for row, used in enumerate(frames):
-        for col in range(columns):
-            cell = arr[row * CELL_H:(row + 1) * CELL_H, col * CELL_W:(col + 1) * CELL_W]
-            filled = int((cell[:, :, 3] > 0).sum())
-            if col < used:
-                if filled == 0:
-                    problems.append('r%d-c%d:empty-used-cell' % (row, col))
-            elif filled != 0:
-                problems.append('r%d-c%d:content-in-unused-cell' % (row, col))
-            elif int(cell[:, :, :3].max()) != 0:
-                problems.append('r%d-c%d:rgb-residue' % (row, col))
+    if is_v2 and doc.get('frames') is None:
+        # Engine pack v2 without a frame declaration: the engine scans painted
+        # columns per row, so validity means painting contiguous from column 0
+        # and trailing cells left fully transparent.
+        for row in range(atlas_rows):
+            painted = [bool((arr[row * CELL_H:(row + 1) * CELL_H,
+                              c * CELL_W:(c + 1) * CELL_W][:, :, 3] > 0).any())
+                       for c in range(columns)]
+            used = 0
+            for c, flag in enumerate(painted):
+                if flag:
+                    used = c + 1
+            if used == 0:
+                problems.append('r%d:empty-row' % row)
+                continue
+            for c in range(used):
+                if not painted[c]:
+                    problems.append('r%d-c%d:gap-in-used-range' % (row, c))
+            for c in range(used, columns):
+                cell = arr[row * CELL_H:(row + 1) * CELL_H, c * CELL_W:(c + 1) * CELL_W]
+                if int(cell[:, :, :3].max()) != 0:
+                    problems.append('r%d-c%d:rgb-residue' % (row, c))
+    else:
+        for row, used in enumerate(frames):
+            for col in range(columns):
+                cell = arr[row * CELL_H:(row + 1) * CELL_H, col * CELL_W:(col + 1) * CELL_W]
+                filled = int((cell[:, :, 3] > 0).sum())
+                if col < used:
+                    if filled == 0:
+                        problems.append('r%d-c%d:empty-used-cell' % (row, col))
+                elif filled != 0:
+                    problems.append('r%d-c%d:content-in-unused-cell' % (row, col))
+                elif int(cell[:, :, :3].max()) != 0:
+                    problems.append('r%d-c%d:rgb-residue' % (row, col))
     report.add('spritesheet-cell-content', not problems, '; '.join(problems[:12]))
 
 
 def check_atlas_matches_spec(doc, report):
+    if doc.get('rowNames') is not None:
+        # The pet carries its own row names, so its own declaration is what it
+        # is judged against rather than the repo-side atlas spec.
+        report.add('atlas-spec-cross-check-skipped', True, 'rows declared by the pet')
+        return
     spec_path = ROOT / 'assets' / 'derived' / 'atlas-spec.json'
     if not spec_path.exists():
         report.add('atlas-spec-cross-check-skipped', True, 'atlas-spec.json absent')
         return
     spec = json.loads(spec_path.read_text(encoding='utf-8'))
-    report.add('atlas-frames-match-spec', doc.get('frames') == spec.get('frames'),
-               str(doc.get('frames')) + ' vs ' + str(spec.get('frames')))
+    declared = doc.get('frames')
+    if declared is None:
+        report.add('atlas-frames-match-spec', True,
+                   'frames not declared; engine scans painted columns per row')
+    else:
+        report.add('atlas-frames-match-spec', declared == spec.get('frames'),
+                   str(declared) + ' vs ' + str(spec.get('frames')))
     report.add('atlas-row-names-match-spec', spec.get('rowNames') == ROW_NAMES,
                str(spec.get('rowNames')))
 
@@ -332,7 +443,9 @@ def validate_pet_dir(pet_dir):
         check_frames2d(pet_dir, doc.get('frames2d') or {}, report)
     else:
         flat = _flatten_v2_sprite2d(doc) if style == 'v2' else doc
+        atlas_rows = V2_ATLAS_ROWS if flat.get('spriteVersionNumber') == 2 else ROWS
         check_sprite2d(pet_dir, flat, report)
+        check_row_declarations(flat, report, atlas_rows)
         check_atlas_matches_spec(flat, report)
     check_sequences(doc, report)
     check_remarks(doc, report)

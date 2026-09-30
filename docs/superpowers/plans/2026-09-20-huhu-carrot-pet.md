@@ -43,8 +43,8 @@ D:/桌宠/
 +- tools/extract_base.py                        抠图与眼区标定（任务 2）
 +- tools/build_frames.py                        frames2d 帧生成（任务 4）
 +- tools/build_atlas.py                         兼容图集生成（任务 5）
-+- tools/build_manifests.py                     清单与台词生成（任务 6）
-+- tools/validate_pet.py                        校验器（任务 7）
++- tools/build_manifests.py                     清单与台词生成（任务 6）+- tools/validate_pet.py                       校验器（任务 7）
++- tools/qa_check.py                           hatch-pet QA rubric 自动QA（规格 9.2）
 +- tools/build_previews.py                      预览生成（任务 8）
 +- tools/build_installers.py                    发布文案与安装卸载器生成（任务 9）
 +- tools/package_release.py                     发布包组装与 zip（任务 10）
@@ -2889,7 +2889,7 @@ zip 会落在工作区内的 release 目录，交付时再由用户复制到 Dow
 
 ## 交付与验收清单
 
-对照规格 9.2 的验收证据，逐条列出证据与来源。交付时把这八条一次性贴给用户，不要省略。
+对照规格 9.3 的验收证据，逐条列出证据与来源。交付时把这八条一次性贴给用户，不要省略。
 
 1. 抠图验收图：preview/huhu-transparent-check.png。棋盘格底上的 192x208 结果，肉眼确认无背景色残留、无主体缺失。来源：任务 8。
 2. 七轨道预览：preview/track-idle.gif 到 track-failed.gif。done 与 failed 比清单多一帧 idle 过渡，这是刻意的预览补帧。来源：任务 8。

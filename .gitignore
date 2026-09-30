@@ -1,9 +1,19 @@
-__pycache__/
-*.pyc
-.pytest_cache/
-# 构建中间产物不入库，只在本地工作区生成：
+# 运行时重建产物（套件会再生成，不入库）
 release/
 *.zip
 preview/
+pet/*/preview/
 pet/huhu-carrot/frames/
-pet/huhu-carrot-office/spritesheet-win-1.png
+
+# 会话记忆与身份标识（系统管理）
+.workbuddy/
+.freebuff/
+
+# Python 缓存
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 编辑器 / 系统
+.DS_Store
+nul

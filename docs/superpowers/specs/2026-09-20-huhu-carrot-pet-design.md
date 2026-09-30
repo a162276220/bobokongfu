@@ -168,6 +168,7 @@ Python 3.12.10；Pillow 12.3.0（WEBP 可用）；numpy 2.4.4；GIF 多帧读写
     |  +- build_manifests.py 生成 pet.json 与 voice.json
     |  +- build_previews.py  预览 GIF 与总览图
     |  +- validate_pet.py    清单与资产校验（对齐 manifest-v2.ts 与 registry.js）
+    |  +- qa_check.py        自动 QA：hatch-pet rubric 的像素级检查，输出 qa/review.json
     |  +- package_release.py 打 zip
     +- 胡胡-Windows-10-11/                    <- 发布包根目录
     |  +- pet/huhu-carrot/
@@ -400,21 +401,93 @@ ASSET-NOTICE.md：说明角色来自用户提供的一张实拍图，衍生资�
 - voice.json：合法 JSON、根为对象、字段都在 VOICE_PACK_KEYS 内、status 无非法占位符、每池不超过 64 行、每行不超过 160 字符。
 - 帧文件名与图集文件名符合 PATH_SEGMENT_PATTERN。
 
-### 9.2 验收证据清单（交付时逐条附上）
+### 9.2 qa_check.py 检查项（hatch-pet QA rubric 对照）
+
+validate_pet.py 守清单与几何契约，本工具守同一份 rubric 里**看图的那一半**。命令：`python tools/qa_check.py [宠物目录...]`，缺省对仓库内两只各跑一遍；输出 `<宠物目录>/qa/review.json`，退出码 0 通过、1 不通过，`--strict` 把警告也当失败。检查名按 rubric 章节前缀分组：
+
+- `geometry:`：图集尺寸等于 列数 x 行数 x 192x208（行数按图高换算，11 行的已装 office 宠物同样覆盖）；每帧四周至少留 1 px 不贴边（裁切即失败）；未用格全透明且无 RGB 残差；已用帧不得是整格不透明底（覆盖率上限 0.85，近白像素占比过半视为残留底色）。
+- `consistency:`：行内帧高/帧面积跳动不超过 1.35 倍、行中位值跳行不超过 1.25/1.4 倍；行内最低不透明像素抖动不超过 32 px、跨行中位底边不超过 14 px；每帧平均色与全局中位色距离不超过 90；单帧实心像素最大连通域占比不低于 0.95（多余主体、邻格切片会掉下去）；抠图键色残留上限品红 24 px、纯绿 96 px。
+- `animation:`：声明帧数与图集实际画出的列数一致；循环行首尾帧差不超过行内最大相邻帧差的 1.5 倍（漂移式错位会被抓出来）；空转行告警；各状态首帧与 idle 首帧差异不小于格面积的 2%。
+- `fitness:`：idle 首帧非空且不贴边（可直接当静态宠物）；idle 平均帧间差须低于各行中位数（告警）；键色不得出现在角色身上。
+- `preview:`：`preview/track-*.gif` 画布为 192x208 且至少两帧（告警）。
+
+阈值均在现有胡胡图集上实测标定，写在工具顶部常量区。告警项正是第 10 章「单张图做动画，动作活但呆」那条已知风险的量化形式：默认不挡发布，`--strict` 下与错误同级。
+
+### 9.3 验收证据清单（交付时逐条附上）
 
 1. 透明底抠图预览 PNG——肉眼确认无背景残留、无主体缺失。
 2. 七张轨道 GIF 加一张动作总览 PNG。
-3. validate_pet.py 对两只目录均输出 ok 为 true，且各自 validation.json 可读。
+3. validate_pet.py 对两只目录均输出 ok 为 true，且各自 validation.json 可读；qa_check.py 对两只目录同样 ok 为 true（各自 qa/review.json）。
 4. 两个宠物目录的文件清单加 sha256（CHECKSUMS-SHA256.txt）。
 5. zip 用 Python 解压校验，确认正斜杠条目名与中文名不乱码。
 6. 装完后 DSH 设置的宠物里出现胡胡，Codex 宠物选择器里也出现胡胡——这一条需要用户重启宿主后确认。
+
+### 9.4 重建后的自查命令
+
+改完图或改完生成器，按原顺序重跑一遍，最后加上 QA 一步：
+
+```bash
+PY="C:/Users/HUAWEI/AppData/Local/Programs/Python/Python312/python.exe"
+"$PY" tools/build_frames.py
+"$PY" tools/build_atlas.py
+"$PY" tools/build_manifests.py
+"$PY" tools/validate_pet.py pet/huhu-carrot
+"$PY" tools/validate_pet.py pet/huhu-carrot-office
+"$PY" tools/build_previews.py
+"$PY" tools/qa_check.py          # 两只宠物一次跑完，逐只写 qa/review.json
+```
+
+`python -m pytest` 本身也会重跑 9.1 与 9.2 的全部检查（tests/test_qa_check.py 直接对两只宠物调 qa_check），并且顺带重建 release 与 zip；所以日常只跑 pytest 就够，上面这串是手工改图时的精确定位用。
+
+### 9.5 统一构建入口（2026-09-28 追加）
+
+四只宠物（胡胡两版、墩墩、打工卜）现在共用一条入口。配方放 `pets/<id>.json`：
+一张 192×208 RGBA 底图 + 一份配置，描述这套角色有几个宿主产物、每套动作怎么动、
+清单与台词写什么。构建、清单、预览、校验、QA 一次跑完：
+
+```bash
+"$PY" tools/build_pet.py            # 全部配方，按 stage 依赖顺序
+"$PY" tools/build_pet.py huhu-carrot # 只做一只角色
+"$PY" tools/build_pet.py --list      # 看有哪些配方
+```
+
+- stage 拆成 `frames2d` → `sprite2d` → `manifests` → `previews`，每个 stage 只读上一个
+  stage 落盘的东西；§4 布局里的 build_frames / build_atlas / build_manifests /
+  build_previews 保留为一行封装（各自只跑对应 stage），所以 §9.4 那串命令照旧可用。
+- 动作以 `motion` channel 表达（八种 kind，见 `pets/README.md`），数值与原先手写
+  的帧函数逐位一致；要么用 `poses` 逐帧写死，要么用 `motion` 参数化，二选一。
+- `rows: "default"` 直接给九行标准动作包，新宠物只要一张底图加一份配置即可出成品。
+- 图集的 `tracks` 由 `rows` 推导，不再两处各写一份；闭眼画在变换前还是变换后由
+  `blinkStage` 决定（胡胡在前，墩墩在后、眼心跟着正向仿射映射）。
+- 重建后逐字节比对：胡胡两版与预览、frames-spec、atlas-spec 与改造前一致；墩墩
+  图集像素完全相同（仅 PNG 压缩参数不同，省 61 KB）；打工卜 pet.json 内容相同
+  （仅换行符变成本仓库统一的 CRLF）。
+- 预览三种样式：`classic`（胡胡，帧 + 图集）、`pack`（墩墩，从自建图集切片）、
+  `sheet`（打工卜，图集由外部提供）。sheet 样式不需要底图，GIF、contact sheet 与
+  预览页全部从那个图集里切片，构建不改写图集；行帧数与播放类型按引擎的读法回推
+  （清单 `frames`/`tracks` 优先，否则数实际画了哪些格），时长依次退到清单
+  `durations`、引擎行默认节奏、配方的 `frameMs`。
+
+### 9.6 跨宠物状态总览（2026-09-28 追加）
+
+`tools/build_pet.py` 全量构建后再写一份 `preview/gallery.html`（单独刷新用
+`tools/build_gallery.py`，`--no-gallery` 可关）。它是矩阵：同一状态同一行，一列一只
+宠物（胡胡两版、墩墩、打工卜共 4 列 14 行，其中 20 格是「它没有这个状态」）。
+
+- 只读 `pet/<id>/` 产物，用 `qa_check.load_grid`——与 QA 同一个读法，所以图集自建、
+  图集外部提供、frames2d 三种宠物同构处理，新增宠物自动进表。
+- 每个状态内联成一条无损 WebP 长图（比同样一条 PNG 小三分之一；解码回来除透明像素
+  的 RGB 外逐像素相同，比较一律用预乘像素），页面一态一图，不重画任何帧。
+- 每格两个数来自同一批像素：变化像素（预乘后任一通道变化超过 16 的像素占比）与起伏
+  （轮廓最低行的上下位移）；每行最少者标「本行最静」，顶部排行榜只算该宠物有的
+  九态，所以 4 态的胡胡、frames2d 版不能和 9 态的直接比。
 
 ## 10. 风险与缓解
 
 | 风险 | 影响 | 缓解 |
 |---|---|---|
 | 抠图残留背景 | 角色四周有绿色或蓝色毛边，观感崩 | 5.2 的透明底预览 PNG 先肉眼验；不达标退化手动框选加羽化 |
-| 单张图做动画，动作活但呆 | 没有新表情，只有姿态变化 | 已在设计阶段承认；用 sequences（sprite2d 侧）加 voice.json 台词弥补 |
+| 单张图做动画，动作活但呆 | 没有新表情，只有姿态变化 | 已在设计阶段承认；用 sequences（sprite2d 侧）加 voice.json 台词弥补；qa_check.py 的 `animation:`/`consistency:` 告警把这条风险量化出来 |
 | v2 清单结构 fail-closed，字段写错就被拒载 | 宠物在 DSH 里不出现且几乎无提示 | 自带 validate_pet.py 对齐 schema 与 registry.js 判定；只把 remarks 与 sequences 的内容错误留给 warn-and-drop |
 | frames2d 未映射轨道永不播放 | 多做的动画白做 | 3.7 已明确，frames2d 侧只保留七条轨道 |
 | sprite2d 每行超过 8 帧被静默封顶 | 帧被丢弃、动作错乱 | validate_pet.py 校验每行帧数不超过 8 |
