@@ -183,7 +183,7 @@ git commit -m "feat: persist a gear field and self-heal saves whose gear ids are
 **Interfaces:**
 - Consumes: `SLOTS`、`gearItem`、`state().gear`（Task 2）；`WUXIA.SECTS[].bonus`（既有）
 - Produces:
-  - `mainStat(item) -> 'neili'|'gengu'|'shenfa'|'wuxing'`
+  - `mainStat(bonus) -> 'neili'|'gengu'|'shenfa'|'wuxing'`（`bonus` 是扁平的四维对象，调用方传 `item.bonus`）
   - `gearBonus() -> {neili:number, gengu:number, shenfa:number, wuxing:number}`（四个键恒存在，未加成者为 0）
   - `setBonus() -> {}` 或 `{<统计属性>: 1|2}`
   - `stats()` 返回值 = 自身 + 门派 + 宠物伙伴 + `gearBonus()` + `setBonus()`
