@@ -94,7 +94,6 @@ function drainTimers(rounds = 60) {
   }
 }
 const pet = { petId: 'huhu-carrot', hunger: 80, mood: 80, health: 100 };
-
 // mount() walks the root element for [data-petid] stages.
 function makeRoot(children) {
   const root = makeEl('div');
@@ -120,6 +119,20 @@ drainTimers();
 check('once-track done returns to base idle', player.currentTrack === 'idle', player.currentTrack);
 // idle is a loop track: a fresh timer is expected while the pet sits.
 check('once-track ends with at most the idle loop timer', !player.chainTimer && !player.bumpTimer, { timer: player.timer, chain: player.chainTimer, bump: player.bumpTimer });
+
+// 循环轨道不能自己停下。回归来源：PET_SPECS 重生后丢了 loop:true，frames2d 的
+// `!track.loop` 判定把所有循环轨道当成一次性，宠物转完一圈就永久冻结。
+player.play('idle');
+let aliveRounds = 0;
+for (let i = 0; i < 300; i++) {
+  const snapshot = Array.from(pendingTimers.entries());
+  if (!snapshot.length) break;
+  for (const [h, t] of snapshot) { pendingTimers.delete(h); t.fn(); }
+  aliveRounds++;
+}
+check('循环轨道跑满 300 轮后仍在播放（不被当成一次性）',
+  player.currentTrack === 'idle' && !!player.timer,
+  { track: player.currentTrack, timer: !!player.timer, rounds: aliveRounds });
 
 // ---- 3. loop transient returns via bumpTimer ---------------------------
 PetManager.playTransient(pet, 'review', true);

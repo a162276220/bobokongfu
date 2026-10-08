@@ -603,6 +603,8 @@
   </div>
   <div data-page-node-id="7SvxF6DKPXciS3H97mox00" class="toast-container" id="toastContainer"></div>
   <script src="deskpet-players.js"></script>
+  <script src="wuxia-content.js"></script>
+  <script src="jianghu.js"></script>
 
   <script data-page-node-id="CrWxasoESnSIGGz8UQtHGD" data-pnid-children="BP2ac4g1tojRTz8HJoH5Lo">
   /* ============================================================
@@ -880,6 +882,12 @@
       reports: { daily: [], weekly: [], monthly: [] },
       checkinHistory: [],
       settings: { dailyReset: true, notifications: true, petRemind: true },
+      jianghu: {
+        sect: null, exp: 0, hours: 0, hoursTotal: 0, taels: 0,
+        stats: { neili: 5, gengu: 5, shenfa: 5, wuxing: 5 },
+        skills: {}, log: [], recent: [], pending: null, duel: null,
+        today: { date: '', adventures: 0 }, wins: 0, losses: 0,
+      },
       lastActiveDate: todayStr(),
       createdAt: new Date().toISOString(),
     };
@@ -931,6 +939,7 @@
     newState.achievements = oldState.achievements || [];
     newState.reports = oldState.reports || newState.reports;
     newState.checkinHistory = oldState.checkinHistory || [];
+    newState.jianghu = oldState.jianghu || newState.jianghu;
     newState.version = DATA_VERSION;
     return newState;
   }
@@ -1000,6 +1009,9 @@
     state.pets.forEach(pet => {
       if (pet.petId) PetManager.playChain(pet, true);
     });
+    // 打卡的额外产出：江湖里的「修炼时辰」
+    const hours = window.Jianghu ? Jianghu.earnHours(taskKey, config.name) : 0;
+    if (hours) showToast(`⚔️ 换来 ${hours} 个修炼时辰，去「江湖」闭关`, 'info');
     return true;
   }
 
@@ -1138,6 +1150,7 @@
     { key: 'inventory',   name: '个人背包',     icon: '🎒' },
     { key: 'cabin',       name: '矿洞小屋布置', icon: '🏠' },
     { key: 'achievement', name: '挖矿成就馆',   icon: '🏅' },
+    { key: 'jianghu',     name: '江湖·文字武侠', icon: '⚔️' },
   ];
   const PAGE_RENDERERS = {
     'dashboard':       () => renderDashboard(),
@@ -1156,12 +1169,14 @@
     'report-monthly':  () => renderMonthlyReport(),
     'checkin-history': () => renderCheckinHistory(),
     'settings':        () => renderSettings(),
+    'jianghu':         () => Jianghu.render(),
   };
   const PAGE_TITLES = {
     'dashboard':'金矿主控大厅', 'diet':'饮食台账', 'exercise':'运动台账', 'accounting':'淘金记账本',
     'vocabulary':'单词矿脉｜英语学习', 'amazon':'亚马逊运营学习矿道', 'xiaohongshu':'副业·小红书工坊',
     'shop':'金矿商城', 'inventory':'我的背包', 'cabin':'矿洞小屋', 'pet-yard':'宠物庭院', 'achievement':'挖矿成就馆',
     'report-weekly':'挖矿周报', 'report-monthly':'挖矿月报', 'checkin-history':'打卡历史', 'settings':'工作台设置',
+    'jianghu':'江湖·文字武侠',
   };
   let currentPage = 'dashboard';
 
@@ -1249,6 +1264,7 @@
 
   function navTo(page) {
     currentPage = page;
+    window.currentPage = page;   // 供外部模块（jianghu.js）判断该不该重渲染
     renderSidebar();
     renderHeader();
     const renderer = PAGE_RENDERERS[page];

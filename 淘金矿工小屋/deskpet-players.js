@@ -1095,7 +1095,7 @@
       if (im.complete) self.img.src = src; // 已缓存则立即
       var dur = ms[i] != null ? ms[i] : DEFAULT_FRAME_MS;
       i = (i + 1) % frames.length;
-      if (!track.loop && i === 0) {
+      if (track.loop === false && i === 0) {
         // once 型播完：落回当前状态（fallbackSemantic 优先），否则用 spec 固定回落
         var fbRaw = fallbackSemantic ? self.map[fallbackSemantic] : track.fallback;
         if (fbRaw && fbRaw !== raw && self.tracks[fbRaw]) { self.play(fbRaw); return; }
