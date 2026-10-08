@@ -122,7 +122,7 @@ git commit -m "feat: add the jianghu gear table and its content validation"
   - `state.jianghu.gear === { owned: {}, equipped: { weapon: null, armor: null, boots: null, charm: null } }`
   - `SLOTS = ['weapon','armor','boots','charm']`（`jianghu.js` 模块内常量）
   - `gearItem(id) -> item | null`（`WUXIA.GEAR` 查找）
-  - `gearTierCap(item) -> number`（返回 `item.tier`）
+  - `gearTierCap(item) -> number`（强化上限：tier 0/1/2 → **2 / 4 / 6**，即 `(item.tier + 1) * 2`。注意**不是**字面的 `item.tier`——那会与 Global Constraints 的「tier ↔ 上限 2/4/6」和「四槽珍品满强化 = +48」冲突）
   - 扩展后的 `sanitize()` 返回 `true` 表示有改动
 
 - [ ] **Step 1: 写失败的自愈测试**
