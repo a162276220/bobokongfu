@@ -16,6 +16,9 @@ const engineProblems = [];
 const contentProblems = [];
 const coverage = { events: 0, choices: 0, outcomes: 0, duels: 0, rounds: 0, skills: 0 };
 const seenOutcomeText = new Set();
+const dropStats = { general: 0, sect: 0 };
+const sectSlotCover = new Set();
+let eventGearGrants = 0;
 
 function bad(list, message) { list.push(message); }
 
@@ -66,6 +69,7 @@ const STAT_KEYS = Object.keys(W.STATS);
 const SKILL_BY_ID = new Map(W.SKILLS.map(s => [s.id, s]));
 const FOE_BY_ID = new Map(W.FOES.map(f => [f.id, f]));
 const SECT_BY_ID = new Map(W.SECTS.map(s => [s.id, s]));
+const GEAR_BY_ID = new Map((W.GEAR || []).map(g => [g.id, g]));
 
 W.REALMS.forEach((r, i) => {
   if (!r.id || !r.name || !r.aura) bad(contentProblems, `realm ${i} 缺字段`);
@@ -165,6 +169,12 @@ W.EVENTS.forEach(e => {
         }
       });
       if (o.gain) Object.keys(o.gain).forEach(k => {
+        if (k === 'gear') {
+          if (typeof o.gain.gear !== 'string' || !GEAR_BY_ID.has(o.gain.gear)) {
+            bad(contentProblems, `${tail} 的 gain.gear=${o.gain.gear} 不存在`);
+          } else eventGearGrants += 1;
+          return;
+        }
         if (!GAIN_KEYS.includes(k)) bad(contentProblems, `${tail} 的 gain.${k} 引擎不认识`);
         if (k === 'stat') {
           Object.keys(o.gain.stat).forEach(s => {
@@ -252,6 +262,37 @@ if (!Array.isArray(W.GEAR) || !W.GEAR.length) {
   });
   coverage.gear = { total: W.GEAR.length, general, sect, slots: [...gearSlots].sort() };
 }
+
+/* ---------- 掉落与事件奖励自检（Task 5） ---------- */
+// 掉落声明：general 的 gear 必须存在；sect 的 slot 必须在四槽内；chance 必须落在 (0,1]。
+// 另要求每个敌人至少有一条掉落，门派掉落槽位要覆盖全部四槽（整套装对任何门派都可达）。
+W.FOES.forEach(f => {
+  if (!Array.isArray(f.drops) || !f.drops.length) {
+    bad(contentProblems, `对手 ${f.id} 没有掉落表，打赢它永远不掉装备`);
+    return;
+  }
+  f.drops.forEach((d, i) => {
+    const where = `对手 ${f.id} 的掉落[${i}]`;
+    if (d.kind === 'general') {
+      if (!GEAR_BY_ID.has(d.gear)) bad(contentProblems, `${where} 的通用装备 ${d.gear} 不存在`);
+      dropStats.general += 1;
+    } else if (d.kind === 'sect') {
+      if (!GEAR_SLOTS.includes(d.slot)) bad(contentProblems, `${where} 的门派槽位 ${d.slot} 不存在`);
+      sectSlotCover.add(d.slot);
+      dropStats.sect += 1;
+    } else {
+      bad(contentProblems, `${where} 的掉落类型 ${d.kind} 引擎不认识`);
+    }
+    if (!(d.chance > 0) || !(d.chance <= 1)) {
+      bad(contentProblems, `${where} 的 chance=${d.chance} 不在 (0,1]`);
+    }
+  });
+});
+GEAR_SLOTS.forEach(s => {
+  if (!sectSlotCover.has(s)) {
+    bad(contentProblems, `门派掉落没有覆盖槽位 ${s}，没办法攒齐一套`);
+  }
+});
 
 /* ---------- 引擎：不变量 ---------- */
 function invariant(what) {
@@ -605,6 +646,13 @@ Object.keys(moves).forEach(move => {
     bad(engineProblems, '运功调息没有让气血回升');
   }
 });
+
+coverage.drops = {
+  general: dropStats.general,
+  sect: dropStats.sect,
+  sectSlots: [...sectSlotCover].sort(),
+  eventGear: eventGearGrants,
+};
 
 console.log(JSON.stringify({
   engineProblems,

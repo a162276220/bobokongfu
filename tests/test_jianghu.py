@@ -94,6 +94,11 @@ def test_gear_table_shape(report):
     assert gear['slots'] == ['armor', 'boots', 'charm', 'weapon']
 
 
+def test_gear_drop_references_resolve(report):
+    """掉落声明里的 gear id / 槽位 / 概率，以及事件 gain.gear 的装备 id 都要指到真数据。"""
+    assert report['contentProblems'] == [], '\n'.join(report['contentProblems'])
+
+
 # ---------- 工作台接线 ----------
 
 def test_the_workbench_loads_both_modules(html):

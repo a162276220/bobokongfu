@@ -142,7 +142,32 @@
   function upgradeCost(item, currentLvl) {
     return Math.round(item.price * 0.25 * (currentLvl + 1));
   }
-  // 行囊唯一落账点：买与（将来 Task 5 的）任务发放都从这里把一件 0 级装备放进行囊。
+  // 掉落表在内容期写、门派在运行时才入，所以门派款按槽位声明、此刻解析到玩家本门对应件。
+  function resolveDrop(drop) {
+    if (!drop) return null;
+    if (drop.kind === 'general') return gearItem(drop.gear);
+    if (drop.kind === 'sect') {
+      var sc = state().sect;
+      return WUXIA.GEAR.filter(function (g) { return g.sect === sc && g.slot === drop.slot; })[0] || null;
+    }
+    return null;
+  }
+  // 发放统一入口：新件只经 ownGear 落账；已有件打三折算成银两并记日志；未知 id 静默返回 unknown。
+  function grantGear(id) {
+    var j = state(), item = gearItem(id);
+    if (!item) return 'unknown';
+    if (!j.gear || !j.gear.owned) j.gear = { owned: {}, equipped: {} };
+    if (j.gear.owned[id]) {
+      var refund = Math.round(item.price * 0.3);
+      j.taels += refund;
+      log('又一件「' + item.name + '」，折算成 ' + refund + ' 两入账。');
+      return 'duplicate';
+    }
+    ownGear(id);
+    log('战利品里有一件「' + item.name + '」，收进行囊。');
+    return 'owned';
+  }
+  // 行囊唯一落账点：买与任务发放都从这里把一件 0 级装备放进行囊。
   function ownGear(id) {
     state().gear.owned[id] = { lvl: 0 };
   }
@@ -426,6 +451,7 @@
     if (g.hours) j.hours += g.hours;
     if (g.stat) { Object.keys(g.stat).forEach(function (k) { j.stats[k] += g.stat[k]; }); }
     if (l.taels) j.taels = Math.max(0, j.taels - l.taels);
+    if (g.gear) grantGear(g.gear);   // 发放结果由 grantGear 写进日志
     var bits = [];
     if (g.exp) bits.push('修为 +' + g.exp);
     if (g.taels) bits.push('银两 +' + g.taels);
@@ -571,6 +597,15 @@
       j.taels += foe.taels;
       log('🏆 胜「' + foe.name + '」，修为 +' + foe.exp + '，银两 +' + foe.taels + '。');
       showToast('你赢了：' + foe.name, 'success');
+      // 逐件掷掉落：命中再解析并发放，发放结果都会写进日志。
+      if (foe.drops && foe.drops.length) {
+        foe.drops.forEach(function (drop) {
+          if (Math.random() < drop.chance) {
+            var item = resolveDrop(drop);
+            if (item) grantGear(item.id);
+          }
+        });
+      }
     } else if (fled) {
       log('🏃 从「' + foe.name + '」面前脱身，江湖路长，不必每场都打。');
     } else {
@@ -749,6 +784,7 @@
                      mainStat: mainStat, gearBonus: gearBonus, setBonus: setBonus,
                      upgradeCost: upgradeCost, buyGear: buyGear, equipGear: equipGear,
                      unequipGear: unequipGear, upgradeGear: upgradeGear,
+                     resolveDrop: resolveDrop, grantGear: grantGear,
                      _pickEvent: pickEvent };
   global.init_jianghu = function () {};
 })(window);

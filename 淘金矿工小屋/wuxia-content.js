@@ -8,12 +8,13 @@
    realms[]  { id, name, need(累计修为), aura(一句气质描述) }
    skills[]  { id, name, sect|null(通用), kind: internal|strike|movement,
                need(境界下标), cost{hours,taels}, max(最大层数), power(每层战力), blurb }
-   foes[]    { id, name, blurb, minRealm, hp, atk, def, taels, exp }
+   foes[]    { id, name, blurb, minRealm, hp, atk, def, taels, exp,
+               drops[{ kind:'general', gear?, chance } | { kind:'sect', slot, chance }] }
    events[]  { id, title, tags[], minRealm, weight, text,
-               choices[]{ label, requires?{stat|skill|realm}, cost?{hours},
-                          outcomes[]{ at?(命中概率，缺省=兜底), text,
-                                      gain?{exp,taels,hours,stat}, lose?{taels,hp},
-                                      foe?(切磋对手 id) } } }
+                           choices[]{ label, requires?{stat|skill|realm}, cost?{hours},
+                                      outcomes[]{ at?(命中概率，缺省=兜底), text,
+                                                  gain?{exp,taels,hours,stat,gear(装备 id)},
+                                                  lose?{taels,hp}, foe?(切磋对手 id) } } }
    petBonuses { byId{petId:{label,bonus{stat:n}}}, default:{label,bonus{stat:n}} }
    gear[]    { id(槽_通用或门派_品阶), name, slot: weapon|armor|boots|charm, sect|null,
                tier: 0|1|2, bonus{stat:正整数}, price }
@@ -71,18 +72,29 @@
   ];
 
   var FOES = [
+    // 掉落：通用款的品阶随敌人强度上移；门派款按槽位声明、运行时落到玩家本门对应件。
     { id: 'caihua', name: '采花贼', blurb: '轻功不错，正面不禁打', minRealm: 0,
-      hp: 46, atk: 7, def: 2, taels: 18, exp: 12 },
+      hp: 46, atk: 7, def: 2, taels: 18, exp: 12,
+      drops: [{ kind: 'general', gear: 'weapon_general_t0', chance: 1 }] },
     { id: 'tangzishou', name: '镖局趟子手', blurb: '一口镖旗使得扎实', minRealm: 0,
-      hp: 70, atk: 10, def: 5, taels: 30, exp: 20 },
+      hp: 70, atk: 10, def: 5, taels: 30, exp: 20,
+      drops: [{ kind: 'general', gear: 'armor_general_t0', chance: 0.6 }] },
     { id: 'guoshi', name: '苗疆蛊师', blurb: '不见人先闻香', minRealm: 1,
-      hp: 88, atk: 15, def: 6, taels: 55, exp: 34 },
+      hp: 88, atk: 15, def: 6, taels: 55, exp: 34,
+      drops: [{ kind: 'general', gear: 'charm_general_t1', chance: 0.25 },
+              { kind: 'sect', slot: 'weapon', chance: 0.35 }] },
     { id: 'qitu', name: '剑阁弃徒', blurb: '剑快，心更急', minRealm: 2,
-      hp: 130, atk: 21, def: 10, taels: 90, exp: 55 },
+      hp: 130, atk: 21, def: 10, taels: 90, exp: 55,
+      drops: [{ kind: 'sect', slot: 'armor', chance: 0.3 },
+              { kind: 'general', gear: 'weapon_general_t1', chance: 0.45 }] },
     { id: 'liwang', name: '西域力王', blurb: '一拳把门框打进屋里', minRealm: 2,
-      hp: 190, atk: 25, def: 12, taels: 130, exp: 72 },
+      hp: 190, atk: 25, def: 12, taels: 130, exp: 72,
+      drops: [{ kind: 'general', gear: 'armor_general_t2', chance: 0.3 }] },
     { id: 'laogai', name: '无名老丐', blurb: '打狗棒法使得随意', minRealm: 3,
-      hp: 240, atk: 30, def: 16, taels: 200, exp: 110 }
+      hp: 240, atk: 30, def: 16, taels: 200, exp: 110,
+      drops: [{ kind: 'sect', slot: 'boots', chance: 0.4 },
+              { kind: 'sect', slot: 'charm', chance: 0.25 },
+              { kind: 'general', gear: 'weapon_general_t2', chance: 0.2 }] }
   ];
 
   // 事件按 tags 与门派 weight 加权抽取；minRealm 是入场门槛。
@@ -166,7 +178,7 @@
       text: '府城外搭了木台，二十岁以下自己报名，输了留一句“承让”。',
       choices: [
         { label: '上台', cost: { hours: 2 },
-          outcomes: [{ at: 0.5, text: '三场皆胜，台下有人开始记你的名字。', gain: { exp: 40, taels: 60 } },
+          outcomes: [{ at: 0.5, text: '三场皆胜，台下有人开始记你的名字。', gain: { exp: 40, taels: 60, gear: 'weapon_general_t1' } },
                      { text: '第二场遇个用剑不要命的，你退了两步。', gain: { exp: 26 }, foe: 'qitu' }] },
         { label: '坐在台下看完一整天', cost: { hours: 2 },
           outcomes: [{ text: '你记下七种起手式，回家拆给沙包练。', gain: { exp: 24, stat: { wuxing: 1 } } }] }
@@ -192,7 +204,7 @@
       choices: [
         { label: '连夜拓下来', cost: { hours: 3 },
           outcomes: [{ at: 0.45, text: '拓到一半，有人举着火把进来了。', gain: { exp: 30 }, foe: 'laogai' },
-                     { text: '你拓了整面墙，天亮时手在抖。', gain: { exp: 70, stat: { wuxing: 2 } } }] },
+                     { text: '你拓了整面墙，天亮时手在抖。', gain: { exp: 70, stat: { wuxing: 2 }, gear: 'charm_general_t1' } }] },
         { label: '只挑自己看得懂的两行', cost: { hours: 1 },
           outcomes: [{ text: '两行够你用十年。', gain: { exp: 40, stat: { neili: 2 } } }] }
       ] },

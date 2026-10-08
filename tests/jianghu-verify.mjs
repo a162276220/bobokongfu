@@ -661,6 +661,186 @@ sane('upgradeGear 恰好扣费后');
 check('upgradeCost(item, 0) === Math.round(price * 0.25)',
   Jianghu.upgradeCost(WUXIA.GEAR.filter((g) => g.id === 'weapon_general_t0')[0], 0) === cost0, cost0);
 
+/* ---------- G. 掉落与事件奖励（Task 5：获得途径与重复折算） ---------- */
+// 可控随机：临时把 Math.random 置成常量或序列，用来掷掉落与奇遇分支。
+function withRoll(value, fn) {
+  const real = Math.random;
+  Math.random = function () { return value; };
+  try { return fn(); }
+  finally { Math.random = real; }
+}
+function withRandSeq(values, fn) {   // Math.random() 依次取 values，取完返 0
+  const real = Math.random, q = values.slice();
+  Math.random = function () { return q.length ? q.shift() : 0; };
+  try { return fn(); }
+  finally { Math.random = real; }
+}
+function gearOwned() { return (J().gear && J().gear.owned) || {}; }
+function gearById(id) { return WUXIA.GEAR.filter(function (g) { return g.id === id; })[0] || null; }
+
+// G0 直接 API：grantGear 的三种行为（owned / duplicate / unknown）
+resetGame();
+J().gear = { owned: {}, equipped: gEquip() };
+let g0err = null, g0r1 = null, g0r2 = null, g0r3 = null;
+try {
+  g0r1 = Jianghu.grantGear('weapon_general_t0');
+  g0r2 = Jianghu.grantGear('weapon_general_t0');
+  g0r3 = Jianghu.grantGear('不存在的兵器');
+} catch (e) { g0err = e; }
+const g0Item = WUXIA.GEAR.filter(function (g) { return g.id === 'weapon_general_t0'; })[0];
+check('grantGear 新装备返回 owned 且入囊为 0 级',
+  !g0err && g0r1 === 'owned' && J().gear.owned.weapon_general_t0
+    && J().gear.owned.weapon_general_t0.lvl === 0,
+  { err: g0err && g0err.message, r1: g0r1, owned: J().gear.owned });
+check('grantGear 重复返回 duplicate 且折算 30% 银两',
+  !g0err && g0r2 === 'duplicate' && J().taels === Math.round(g0Item.price * 0.3),
+  { err: g0err && g0err.message, r2: g0r2, taels: J().taels, want: Math.round(g0Item.price * 0.3) });
+check('grantGear 未知 id 返回 unknown 且不崩',
+  !g0err && g0r3 === 'unknown' && J().taels === Math.round(g0Item.price * 0.3),
+  { err: g0err && g0err.message, r3: g0r3, taels: J().taels });
+sane('grantGear 直接调用后');
+
+// G1 内容形状：测试收口（每条字段拼装的细节交互由 pytest 的 harness 校验）
+const chance1Foe = WUXIA.FOES.find(function (f) {
+  return (f.drops || []).some(function (d) { return d.kind === 'general' && d.chance === 1; });
+});
+check('内容里有 chance=1 的通用掉落', !!chance1Foe, chance1Foe && chance1Foe.id);
+const sectWeaponFoe = WUXIA.FOES.find(function (f) {
+  return (f.drops || []).some(function (d) { return d.kind === 'sect' && d.slot === 'weapon'; });
+});
+check('内容里有门派武器掉落', !!sectWeaponFoe, sectWeaponFoe && sectWeaponFoe.id);
+const gearEvtCount = WUXIA.EVENTS.filter(function (e) {
+  return e.choices.some(function (c) { return c.outcomes.some(function (o) { return o.gain && o.gain.gear; }); });
+}).length;
+check('内容里至少两个事件发装备', gearEvtCount >= 2, gearEvtCount);
+
+// G2 胜利掉落：chance=1 的 general 条目打赢必进囊
+if (chance1Foe) {
+  const d1 = chance1Foe.drops.filter(function (d) { return d.kind === 'general' && d.chance === 1; })[0];
+  resetGame();
+  J().hours = 100; J().stats = { neili: 80, gengu: 80, shenfa: 80, wuxing: 80 };
+  J().gear = { owned: {}, equipped: gEquip() };
+  J().duel = { foe: chance1Foe.id, foeHp: 1, hp: 9999, round: 1, guard: false, lines: [] };
+  withRoll(0.9, function () { Jianghu.spar('strike'); });
+  check('胜利掉落 chance=1 必然进囊', !!gearOwned()[d1.gear] && gearOwned()[d1.gear].lvl === 0,
+    { gear: d1.gear, owned: gearOwned() });
+  sane('胜利掉落战后');
+}
+
+// G3 重复掉落：owned 不增、折算 30%、挂进日志
+if (chance1Foe) {
+  const dUp = chance1Foe.drops.filter(function (d) { return d.kind === 'general' && d.chance === 1; })[0];
+  const upPrice = gearById(dUp.gear).price;
+  resetGame();
+  J().hours = 100; J().stats = { neili: 80, gengu: 80, shenfa: 80, wuxing: 80 };
+  J().taels = 0;
+  J().gear = { owned: {}, equipped: gEquip() };
+  J().duel = { foe: chance1Foe.id, foeHp: 1, hp: 9999, round: 1, guard: false, lines: [] };
+  withRoll(0.9, function () { Jianghu.spar('strike'); });          // 第一次：进囊
+  const tAfterFirst = J().taels;
+  J().duel = { foe: chance1Foe.id, foeHp: 1, hp: 9999, round: 1, guard: false, lines: [] };
+  withRoll(0.9, function () { Jianghu.spar('strike'); });      // 第二次：同一件
+  check('重复掉落 owned 不新增条目', Object.keys(gearOwned()).length === 1 && !!gearOwned()[dUp.gear],
+    { owned: gearOwned() });
+  check('重复掉落折算成 30% 银两（连同胜局银两一起算）',
+    J().taels - tAfterFirst === chance1Foe.taels + Math.round(upPrice * 0.3),
+    { after: J().taels, afterFirst: tAfterFirst, foeT: chance1Foe.taels, price: upPrice });
+  check('重复折算写进日志',
+    J().log.some(function (l) { return l.t.indexOf('折算') >= 0; }), J().log && J().log[0]);
+  sane('重复掉落折算后');
+}
+
+// G3b 边界：chance=0 的条目必然不掉、也不崩
+{
+  // 内容约束不允许写 chance=0，这里临时塞一个制造边界，测规则的鲁棒性
+  const ghostFoe = { id: 'ghost-no-drop', name: '测不出落', blurb: 'x', minRealm: 0,
+    hp: 1, atk: 0, def: 0, taels: 1, exp: 1,
+    drops: [{ kind: 'general', gear: 'armor_general_t0', chance: 0 }] };
+  WUXIA.FOES.push(ghostFoe);
+  try {
+    resetGame();
+    J().hours = 100; J().stats = { neili: 40, gengu: 40, shenfa: 40, wuxing: 40 };
+    J().gear = { owned: {}, equipped: gEquip() };
+    J().duel = { foe: ghostFoe.id, foeHp: 1, hp: 9999, round: 1, guard: false, lines: [] };
+    withRoll(0.9, function () { Jianghu.spar('strike'); });
+    check('chance=0 的条目必然不掉且不崩', !gearOwned().armor_general_t0, gearOwned());
+  } finally { WUXIA.FOES.pop(); }
+}
+
+// G4 门派掉落按玩家门派解析（resolveDrop 与打赢入库两步走）
+resetGame(); J().sect = 'shaolin';
+const sectSha = Jianghu.resolveDrop({ kind: 'sect', slot: 'weapon' });
+resetGame(); J().sect = 'tangmen';
+const sectTan = Jianghu.resolveDrop({ kind: 'sect', slot: 'weapon' });
+check('resolveDrop(sect/weapon) 少林弟子 → 少林兵器', sectSha && sectSha.id === 'weapon_shaolin_t1', sectSha);
+check('resolveDrop(sect/weapon) 唐门弟子 → 唐门兵器', sectSha && sectTan && sectTan.id === 'weapon_tangmen_t1', sectTan);
+if (sectWeaponFoe) {
+  resetGame();
+  J().sect = 'shaolin';
+  J().hours = 100; J().stats = { neili: 40, gengu: 40, shenfa: 40, wuxing: 40 };
+  J().gear = { owned: {}, equipped: gEquip() };
+  J().duel = { foe: sectWeaponFoe.id, foeHp: 1, hp: 9999, round: 1, guard: false, lines: [] };
+  withRoll(0.01, function () { Jianghu.spar('strike'); });
+  check('打赢门派武器掉落 → 入库为少林本门兵器', !!gearOwned().weapon_shaolin_t1, gearOwned());
+  sane('门派掉落入库后');
+}
+
+// G5 事件奖励：outcome.gain.gear 入库；重复同样折算
+function firstGearOutcome(skipTael) {
+  for (const e of WUXIA.EVENTS) {
+    for (let ci = 0; ci < e.choices.length; ci++) {
+      const c = e.choices[ci];
+      if (c.requires && c.requires.skill) continue;
+      const outs = c.outcomes;
+      for (let oi = 0; oi < outs.length; oi++) {
+        const o = outs[oi];
+        if (o.gain && o.gain.gear && (!skipTael || !o.gain.taels)) return { e, ci, oi, o, outs };
+      }
+    }
+  }
+  return null;
+}
+function forkAt(outs, oi) {   // 返回逼出第 oi 个分支的随机序列
+  const vals = [];
+  for (let i = 0; i < oi; i++) vals.push(0.99);       // 靠前的分支全部落空
+  if (oi < outs.length - 1) vals.push(0.01);          // 目标分支本身有 at
+  return vals;
+}
+const gearAward = firstGearOutcome(false);
+if (gearAward) {
+  const gIt = gearById(gearAward.o.gain.gear);
+  resetGame();
+  J().hours = 60; J().taels = 0;
+  J().stats = { neili: 60, gengu: 60, shenfa: 60, wuxing: 60 };
+  J().gear = { owned: {}, equipped: gEquip() };
+  J().pending = { id: gearAward.e.id };
+  withRandSeq(forkAt(gearAward.outs, gearAward.oi), function () { Jianghu.choose(gearAward.ci); });
+  check('事件 outcome.gain.gear → 该件入库（0 级）',
+    !!J().gear.owned[gearAward.o.gain.gear] && J().gear.owned[gearAward.o.gain.gear].lvl === 0,
+    { gear: gearAward.o.gain.gear, owned: J().gear.owned });
+  sane('事件奖励装备后');
+}
+
+const gearDup = firstGearOutcome(true);   // 选一件不动 taels 的，折算金额才干净
+if (gearDup) {
+  const dupItem = gearById(gearDup.o.gain.gear);
+  resetGame();
+  J().hours = 60; J().taels = 0;
+  J().stats = { neili: 60, gengu: 60, shenfa: 60, wuxing: 60 };
+  J().gear = { owned: {}, equipped: gEquip() };
+  J().pending = { id: gearDup.e.id };
+  withRandSeq(forkAt(gearDup.outs, gearDup.oi), function () { Jianghu.choose(gearDup.ci); });   // 第一次：进囊
+  const tHave = J().taels;
+  J().pending = { id: gearDup.e.id };
+  withRandSeq(forkAt(gearDup.outs, gearDup.oi), function () { Jianghu.choose(gearDup.ci); });   // 第二次：重复
+  check('事件重复派装备 → 折算 30% 银两',
+    J().taels === tHave + Math.round(dupItem.price * 0.3)
+      && Object.keys(J().gear.owned).length === 1,
+    { before: tHave, after: J().taels, price: dupItem.price, owned: J().gear.owned });
+  check('事件折算也写进日志',
+    J().log.some(function (l) { return l.t.indexOf('折算') >= 0; }), J().log && J().log[0]);
+  sane('事件重复折算后');
+}
 console.log(lines.join('\n'));
 console.log('VERDICT ' + (failures === 0 ? 'ALL-PASS' : 'HAS-FAILURES (' + failures + ')'));
 process.exitCode = failures === 0 ? 0 : 1;
