@@ -512,6 +512,22 @@ check('stats() 层序：自身+门派+宠物+装备+套装 合计恰为 13',
   !st13Err && st13 && st13.neili === 5 && st13.gengu === 8 && st13.shenfa === 0 && st13.wuxing === 0 && sum13 === 13,
   { st13, sum13, err: st13Err && st13Err.message });
 
+// 套装生效且读 stats()：端到端验证 setBonus 真的叠加进了 stats()
+// （E 节既有用例要么套装不触发、要么直接调 setBonus()，均不覆盖此路径）
+// 存档：sect=少林 + 装备 2 件少林件，lvl 均为 0
+//   weapon_shaolin_t1 bonus {neili:1, gengu:3}；armor_shaolin_t1 bonus {gengu:4}
+//   叠加：自身 5/5/5/5 + 门派 shaolin {gengu:+4} + 装备 {neili:+1, gengu:+7} + 套装 2 件 {gengu:+1}
+//   => neili 6 / gengu 17 / shenfa 5 / wuxing 5
+resetGame();
+J().sect = 'shaolin';
+J().gear = { owned: { weapon_shaolin_t1: { lvl: 0 }, armor_shaolin_t1: { lvl: 0 } },
+             equipped: gEquip({ weapon: 'weapon_shaolin_t1', armor: 'armor_shaolin_t1' }) };
+let stSet = null, stSetErr = null;
+try { stSet = Jianghu.stats(); } catch (e) { stSetErr = e; }
+check('套装生效 stats() 端到端：自身+门派+两件装+套装(+1) 精确一致',
+  !stSetErr && stSet && stSet.neili === 6 && stSet.gengu === 17 && stSet.shenfa === 5 && stSet.wuxing === 5,
+  { stSet, err: stSetErr && stSetErr.message });
+
 // 数值纪律：四槽珍品满强化 gearBonus() 四维合计恰为 48
 resetGame();
 const t2Ids = ['weapon_general_t2', 'armor_general_t2', 'boots_general_t2', 'charm_general_t2'];
