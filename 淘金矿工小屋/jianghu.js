@@ -67,6 +67,10 @@
     partners().forEach(function (p) {
       Object.keys(p.bonus).forEach(function (k) { s[k] += p.bonus[k]; });
     });
+    var g = gearBonus();
+    Object.keys(g).forEach(function (k) { s[k] += g[k]; });
+    var sb = setBonus();
+    Object.keys(sb).forEach(function (k) { s[k] += sb[k]; });
     return s;
   }
   function power() {
@@ -85,6 +89,53 @@
   }
   // 品阶 → 强化上限：凡 2 级、精 4 级、珍 6 级（不是 tier 本身那个 0/1/2）。
   function gearTierCap(item) { return (item.tier + 1) * 2; }
+  // 主属性：bonus 中数值最大的键，并列时按 内力 > 根骨 > 身法 > 悟性 取先出现者（保证确定性）。
+  var MAIN_ORDER = ['neili', 'gengu', 'shenfa', 'wuxing'];
+  function mainStat(bonus) {
+    var best = MAIN_ORDER[0], i, k;
+    for (i = 1; i < MAIN_ORDER.length; i++) {
+      k = MAIN_ORDER[i];
+      if ((bonus[k] || 0) > (bonus[best] || 0)) best = k;
+    }
+    return best;
+  }
+  // 装备加成：遍历四槽，先加 item.bonus 全部键，再给主属性加 owned[id].lvl（强化只长主属性）。
+  function gearBonus() {
+    var out = { neili: 0, gengu: 0, shenfa: 0, wuxing: 0 };
+    var gear = state().gear;
+    if (!gear || !gear.equipped) return out;
+    SLOTS.forEach(function (slot) {
+      var id = gear.equipped[slot];
+      if (!id) return;
+      var item = gearItem(id);
+      if (!item) return;
+      Object.keys(item.bonus).forEach(function (k) { out[k] += item.bonus[k]; });
+      var entry = (gear.owned || {})[id];
+      if (entry && typeof entry.lvl === 'number') out[mainStat(item.bonus)] += entry.lvl;
+    });
+    return out;
+  }
+  // 套装加成：已穿且属本门的件数 ≥2 生效，2 件 +1、4 件 +2；
+  // 加成属性取本门派加成首键（少林根骨 / 武当内力 / 唐门身法）。
+  function setBonus() {
+    var mySect = state().sect;
+    if (!mySect) return {};
+    var sc = sect();
+    if (!sc) return {};
+    var count = 0, id, item, gear = state().gear;
+    if (gear && gear.equipped) {
+      SLOTS.forEach(function (s) {
+        id = gear.equipped[s];
+        if (!id) return;
+        item = gearItem(id);
+        if (item && item.sect && item.sect === mySect) count++;
+      });
+    }
+    if (count < 2) return {};
+    var out = {};
+    out[Object.keys(sc.bonus)[0]] = (count >= 4) ? 2 : 1;
+    return out;
+  }
 
   /* ---------- 存档自愈 ----------
      存档里存的是内容 id（pending.id / duel.foe / sect / skills 的键）。内容表一旦
@@ -615,6 +666,7 @@
   global.Jianghu = { render: render, sanitize: sanitize, earnHours: earnHours, cultivate: cultivate, learn: learn,
                      adventure: adventure, choose: choose, decline: decline, spar: spar,
                      joinSect: joinSect, realm: realm, power: power, stats: stats,
+                     mainStat: mainStat, gearBonus: gearBonus, setBonus: setBonus,
                      _pickEvent: pickEvent };
   global.init_jianghu = function () {};
 })(window);

@@ -423,6 +423,107 @@ try { html4 = Jianghu.render(); } catch (e) { err4 = e; }
 check('有进行中对局时渲染不抛异常', !err4, err4 && err4.message);
 check('对局界面出现四个动作', ['进招', '守势', '运功调息', '轻身脱身'].every((k) => html4.includes(k)));
 
+/* ---------- E. 装备加成与套装（Task 3：gearBonus / setBonus / mainStat 接入 stats） ---------- */
+// 装备四层顺序：自身 → 门派 → 宠物伙伴 → gearBonus → setBonus，各层纯加法。
+const GSLOTS = { weapon: null, armor: null, boots: null, charm: null };
+function gEquip(overrides) { return Object.assign({}, GSLOTS, overrides || {}); }
+// 上面 stats 用的 sandbox.getState() 就是 state()；这里统一从 J() 里直接造装备存档。
+function sbWithShaolin(n) {
+  const ids = ['weapon_shaolin_t1', 'armor_shaolin_t1', 'boots_shaolin_t1', 'charm_shaolin_t1'];
+  const owned = {}, equipped = {};
+  ids.slice(0, n).forEach((id) => {
+    const item = WUXIA.GEAR.filter((g) => g.id === id)[0];
+    owned[id] = { lvl: 0 };
+    equipped[item.slot] = id;
+  });
+  J().gear = { owned, equipped };
+  try { return Jianghu.setBonus(); } catch (e) { return { __err: e.message }; }
+}
+
+// E1 单槽装备 → gearBonus() 等于该件 bonus
+resetGame();
+J().gear = { owned: { weapon_general_t0: { lvl: 0 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+let gb1 = null, gbErr1 = null;
+try { gb1 = Jianghu.gearBonus(); } catch (e) { gbErr1 = e; }
+check('单槽装备 gearBonus 等于该件 bonus', !gbErr1 && gb1 && gb1.neili === 1 && gb1.gengu === 1 && gb1.shenfa === 0 && gb1.wuxing === 0,
+  { gb1, err: gbErr1 && gbErr1.message });
+
+// ---- 四槽全穿 → 各属性为四件之和（凡品四件：ne 1+g 1 / g 2 / 身 2 / 悟 2）
+resetGame();
+J().gear = {
+  owned: { weapon_general_t0: { lvl: 0 }, armor_general_t0: { lvl: 0 }, boots_general_t0: { lvl: 0 }, charm_general_t0: { lvl: 0 } },
+  equipped: gEquip({ weapon: 'weapon_general_t0', armor: 'armor_general_t0', boots: 'boots_general_t0', charm: 'charm_general_t0' }),
+};
+let gb4 = null, gbErr4 = null;
+try { gb4 = Jianghu.gearBonus(); } catch (e) { gbErr4 = e; }
+check('四槽全穿 gearBonus 各属性为四件之和', !gbErr4 && gb4 && gb4.neili === 1 && gb4.gengu === 3 && gb4.shenfa === 2 && gb4.wuxing === 2,
+  { gb4, err: gbErr4 && gbErr4.message });
+
+// 强化 2 级 → 只有主属性 +2，其余键不变（凡品刀主属性=内力，其余不动）
+resetGame();
+J().gear = { owned: { weapon_general_t0: { lvl: 2 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+let gbUp = null, gbErrUp = null;
+try { gbUp = Jianghu.gearBonus(); } catch (e) { gbErrUp = e; }
+check('强化 2 级后只有主属性 +2，其余键不变', !gbErrUp && gbUp && gbUp.neili === 3 && gbUp.gengu === 1 && gbUp.shenfa === 0 && gbUp.wuxing === 0,
+  { gbUp, err: gbErrUp && gbErrUp.message });
+
+// 主属性并列取先出现者（neili > gengu > shenfa > wuxing）
+let ms = null, msErr = null;
+try { ms = Jianghu.mainStat({ neili: 3, gengu: 3 }); } catch (e) { msErr = e; }
+check('mainStat 并列时取 neili', !msErr && ms === 'neili', { ms, err: msErr && msErr.message });
+
+// 未入门派（sect=null）穿门派款 → setBonus() 为空对象
+resetGame();
+J().gear = { owned: { weapon_shaolin_t1: { lvl: 0 }, armor_shaolin_t1: { lvl: 0 } },
+             equipped: gEquip({ weapon: 'weapon_shaolin_t1', armor: 'armor_shaolin_t1' }) };
+let sbNone = null, sbErrNone = null;
+try { sbNone = Jianghu.setBonus(); } catch (e) { sbErrNone = e; }
+check('未入门派穿门派款 setBonus 为空对象', !sbErrNone && JSON.stringify(sbNone) === '{}', { sbNone, err: sbErrNone && sbErrNone.message });
+
+// 入门派后本门 1/2/3/4 件 → {} / +1 / 仍 +1（Review Focus 5）/ +2
+resetGame();
+J().sect = 'shaolin';
+const sb1 = sbWithShaolin(1), sb2 = sbWithShaolin(2), sb3 = sbWithShaolin(3), sb4 = sbWithShaolin(4);
+check('本门 1/2/3/4 件 → {}/+1/+1/+2',
+  JSON.stringify(sb1) === '{}' && JSON.stringify(sb2) === '{"gengu":1}'
+    && JSON.stringify(sb3) === '{"gengu":1}' && JSON.stringify(sb4) === '{"gengu":2}',
+  { sb1, sb2, sb3, sb4 });
+
+// 穿别派门派款 4 件 → setBonus() 仍为空对象
+resetGame();
+J().sect = 'shaolin';
+J().gear = { owned: { weapon_wudang_t1: { lvl: 0 }, armor_wudang_t1: { lvl: 0 }, boots_wudang_t1: { lvl: 0 }, charm_wudang_t1: { lvl: 0 } },
+             equipped: gEquip({ weapon: 'weapon_wudang_t1', armor: 'armor_wudang_t1', boots: 'boots_wudang_t1', charm: 'charm_wudang_t1' }) };
+let sbOther = null, sbErrOther = null;
+try { sbOther = Jianghu.setBonus(); } catch (e) { sbErrOther = e; }
+check('穿别派门派款 4 件 setBonus 仍为空对象', !sbErrOther && JSON.stringify(sbOther) === '{}', { sbOther, err: sbErrOther && sbErrOther.message });
+
+// stats() 顺序断言：四维合计恰为 13（自身 0 + 门派武当 +4 + 宠物 1 + 装备两件别派 +8 + 套装不触发 0）
+resetGame();
+J().stats = { neili: 0, gengu: 0, shenfa: 0, wuxing: 0 };
+J().sect = 'wudang';
+sandbox.getState().pets = [{ id: 'p1', petId: 'no-such-pet', name: '切' }]; // 未注册 petId → 用 default {gengu:+1}
+J().gear = { owned: { weapon_shaolin_t1: { lvl: 0 }, armor_general_t1: { lvl: 0 } },
+             equipped: gEquip({ weapon: 'weapon_shaolin_t1', armor: 'armor_general_t1' }) };
+let st13 = null, st13Err = null;
+try { st13 = Jianghu.stats(); } catch (e) { st13Err = e; }
+const sum13 = st13 ? st13.neili + st13.gengu + st13.shenfa + st13.wuxing : NaN;
+check('stats() 层序：自身+门派+宠物+装备+套装 合计恰为 13',
+  !st13Err && st13 && st13.neili === 5 && st13.gengu === 8 && st13.shenfa === 0 && st13.wuxing === 0 && sum13 === 13,
+  { st13, sum13, err: st13Err && st13Err.message });
+
+// 数值纪律：四槽珍品满强化 gearBonus() 四维合计恰为 48
+resetGame();
+const t2Ids = ['weapon_general_t2', 'armor_general_t2', 'boots_general_t2', 'charm_general_t2'];
+const ownedT2 = {}, equippedT2 = {};
+t2Ids.forEach((id) => { const item = WUXIA.GEAR.filter((g) => g.id === id)[0]; ownedT2[id] = { lvl: 6 }; equippedT2[item.slot] = id; });
+J().gear = { owned: ownedT2, equipped: equippedT2 };
+let gb48 = null, gbErr48 = null;
+try { gb48 = Jianghu.gearBonus(); } catch (e) { gbErr48 = e; }
+const sum48 = gb48 ? gb48.neili + gb48.gengu + gb48.shenfa + gb48.wuxing : NaN;
+check('四槽珍品满强化四维合计恰为 48', !gbErr48 && gb48 && sum48 === 48
+  && gb48.neili === 9 && gb48.gengu === 15 && gb48.shenfa === 12 && gb48.wuxing === 12, { gb48, sum48, err: gbErr48 && gbErr48.message });
+
 console.log(lines.join('\n'));
 console.log('VERDICT ' + (failures === 0 ? 'ALL-PASS' : 'HAS-FAILURES (' + failures + ')'));
 process.exitCode = failures === 0 ? 0 : 1;
