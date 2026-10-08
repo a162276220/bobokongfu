@@ -81,6 +81,19 @@ def test_the_growth_curve_reaches_the_top_and_battles_have_stakes(report):
     assert duels['maxRounds'] >= 3, duels
 
 
+def test_gear_table_is_valid(report):
+    """装备表自己也要经得起交叉引用 —— 它现在只摆在数据层，引擎还没接。"""
+    assert report['contentProblems'] == [], '\n'.join(report['contentProblems'])
+
+
+def test_gear_table_shape(report):
+    gear = report['coverage']['gear']
+    assert gear['total'] == 24
+    assert gear['general'] == 12
+    assert gear['sect'] == 12
+    assert gear['slots'] == ['armor', 'boots', 'charm', 'weapon']
+
+
 # ---------- 工作台接线 ----------
 
 def test_the_workbench_loads_both_modules(html):

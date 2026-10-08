@@ -205,6 +205,54 @@ Object.keys(W.TASK_HOURS).forEach(k => {
   if (!(W.TASK_HOURS[k] > 0)) bad(contentProblems, `任务 ${k} 给的时辰必须为正`);
 });
 
+/* ---------- 装备表自检 ---------- */
+const GEAR_SLOTS = ['weapon', 'armor', 'boots', 'charm'];
+const GEAR_TIER_SUM = { 0: 2, 1: 4, 2: 6 };
+if (!Array.isArray(W.GEAR) || !W.GEAR.length) {
+  bad(contentProblems, 'GEAR 表缺失');
+} else {
+  const gearIds = new Set();
+  const gearSlots = new Set();
+  let general = 0, sect = 0;
+  W.GEAR.forEach((g, i) => {
+    const where = `装备 ${g && g.id ? g.id : `#${i + 1}`}`;
+    if (!g.id) bad(contentProblems, `${where} 没有 id`);
+    else if (gearIds.has(g.id) || SKILL_BY_ID.has(g.id) || FOE_BY_ID.has(g.id) || SECT_BY_ID.has(g.id)) {
+      bad(contentProblems, `${where} 的 id 与别处重名`);
+    }
+    gearIds.add(g.id);
+    if (!g.name) bad(contentProblems, `${where} 没有名字`);
+    if (!GEAR_SLOTS.includes(g.slot)) bad(contentProblems, `${where} 的槽位 ${g.slot} 不存在`);
+    else gearSlots.add(g.slot);
+    if (![0, 1, 2].includes(g.tier)) bad(contentProblems, `${where} 的品阶 ${g.tier} 越界`);
+    if (!Number.isInteger(g.price) || g.price <= 0) bad(contentProblems, `${where} 的售价必须为正整数`);
+    if (g.sect !== null && !SECT_BY_ID.has(g.sect)) bad(contentProblems, `${where} 的门派 ${g.sect} 不存在`);
+    if (!g.bonus || typeof g.bonus !== 'object' || Array.isArray(g.bonus) || !Object.keys(g.bonus).length) {
+      bad(contentProblems, `${where} 没有任何加成`);
+    } else {
+      let sum = 0;
+      Object.keys(g.bonus).forEach(k => {
+        if (!STAT_KEYS.includes(k)) bad(contentProblems, `${where} 加了不存在的属性 ${k}`);
+        if (!Number.isInteger(g.bonus[k]) || g.bonus[k] <= 0) {
+          bad(contentProblems, `${where} 的 ${k} 加成必须是正整数（0 和负数都不算）`);
+        }
+        sum += g.bonus[k];
+      });
+      if (sum !== GEAR_TIER_SUM[g.tier]) {
+        bad(contentProblems, `${where} 的加成合计 ${sum}，${g.tier} 品应当是 ${GEAR_TIER_SUM[g.tier]}`);
+      }
+    }
+    if (g.sect === null) general += 1;
+    else {
+      sect += 1;
+      if (g.tier !== 1 || g.price !== 350) {
+        bad(contentProblems, `${where} 是门派款，必须 tier=1、价 350，实际 tier=${g.tier}、价=${g.price}`);
+      }
+    }
+  });
+  coverage.gear = { total: W.GEAR.length, general, sect, slots: [...gearSlots].sort() };
+}
+
 /* ---------- 引擎：不变量 ---------- */
 function invariant(what) {
   const s = j();

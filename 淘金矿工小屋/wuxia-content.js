@@ -15,6 +15,9 @@
                                       gain?{exp,taels,hours,stat}, lose?{taels,hp},
                                       foe?(切磋对手 id) } } }
    petBonuses { byId{petId:{label,bonus{stat:n}}}, default:{label,bonus{stat:n}} }
+   gear[]    { id(槽_通用或门派_品阶), name, slot: weapon|armor|boots|charm, sect|null,
+               tier: 0|1|2, bonus{stat:正整数}, price }
+             加成合计等于品阶规格（0→2、1→4、2→6）；门派款一律 tier 1、价 350。
 
    requires 与 gain.stat 的 stat 名必须是 neili/gengu/shenfa/wuxing 四个之一。
    ============================================================ */
@@ -310,7 +313,63 @@
     diet: 1, exercise: 3, accounting: 1, vocabulary: 3, amazon: 2, xiaohongshu: 2
   };
 
+  // 装备：通用款按品阶分凡/精/珍三档，门派款只做精品一档，加成偏向本门身份属性。
+  var GEAR = [
+    // 通用款：武器偏内力与根骨，甲偏根骨，靴偏身法，佩饰偏悟性。
+    { id: 'weapon_general_t0', name: '白铁短刀', slot: 'weapon', sect: null, tier: 0,
+      bonus: { neili: 1, gengu: 1 }, price: 90 },
+    { id: 'weapon_general_t1', name: '百炼雁翎刀', slot: 'weapon', sect: null, tier: 1,
+      bonus: { neili: 2, gengu: 2 }, price: 320 },
+    { id: 'weapon_general_t2', name: '玄铁无锋剑', slot: 'weapon', sect: null, tier: 2,
+      bonus: { neili: 3, gengu: 3 }, price: 780 },
+    { id: 'armor_general_t0', name: '粗布短打', slot: 'armor', sect: null, tier: 0,
+      bonus: { gengu: 2 }, price: 70 },
+    { id: 'armor_general_t1', name: '鱼鳞软甲', slot: 'armor', sect: null, tier: 1,
+      bonus: { gengu: 4 }, price: 300 },
+    { id: 'armor_general_t2', name: '乌金锁子甲', slot: 'armor', sect: null, tier: 2,
+      bonus: { gengu: 6 }, price: 720 },
+    { id: 'boots_general_t0', name: '麻底快靴', slot: 'boots', sect: null, tier: 0,
+      bonus: { shenfa: 2 }, price: 80 },
+    { id: 'boots_general_t1', name: '牛皮云头靴', slot: 'boots', sect: null, tier: 1,
+      bonus: { shenfa: 4 }, price: 280 },
+    { id: 'boots_general_t2', name: '踏雪无痕靴', slot: 'boots', sect: null, tier: 2,
+      bonus: { shenfa: 6 }, price: 680 },
+    { id: 'charm_general_t0', name: '桃木平安符', slot: 'charm', sect: null, tier: 0,
+      bonus: { wuxing: 2 }, price: 110 },
+    { id: 'charm_general_t1', name: '白玉扳指', slot: 'charm', sect: null, tier: 1,
+      bonus: { wuxing: 4 }, price: 380 },
+    { id: 'charm_general_t2', name: '古玉璇玑', slot: 'charm', sect: null, tier: 2,
+      bonus: { wuxing: 6 }, price: 880 },
+    // 少林款：根骨为先，棍与袍都沉。
+    { id: 'weapon_shaolin_t1', name: '齐眉铁棍', slot: 'weapon', sect: 'shaolin', tier: 1,
+      bonus: { neili: 1, gengu: 3 }, price: 350 },
+    { id: 'armor_shaolin_t1', name: '木棉僧袍', slot: 'armor', sect: 'shaolin', tier: 1,
+      bonus: { gengu: 4 }, price: 350 },
+    { id: 'boots_shaolin_t1', name: '踏桩布鞋', slot: 'boots', sect: 'shaolin', tier: 1,
+      bonus: { gengu: 2, shenfa: 2 }, price: 350 },
+    { id: 'charm_shaolin_t1', name: '一百零八颗念珠', slot: 'charm', sect: 'shaolin', tier: 1,
+      bonus: { gengu: 2, wuxing: 2 }, price: 350 },
+    // 武当款：内力为先，剑与袍都慢。
+    { id: 'weapon_wudang_t1', name: '七星长剑', slot: 'weapon', sect: 'wudang', tier: 1,
+      bonus: { neili: 3, gengu: 1 }, price: 350 },
+    { id: 'armor_wudang_t1', name: '紫霄道袍', slot: 'armor', sect: 'wudang', tier: 1,
+      bonus: { neili: 2, gengu: 2 }, price: 350 },
+    { id: 'boots_wudang_t1', name: '云履', slot: 'boots', sect: 'wudang', tier: 1,
+      bonus: { neili: 2, shenfa: 2 }, price: 350 },
+    { id: 'charm_wudang_t1', name: '太极玉佩', slot: 'charm', sect: 'wudang', tier: 1,
+      bonus: { neili: 2, wuxing: 2 }, price: 350 },
+    // 唐门款：身法为先，什么都轻。
+    { id: 'weapon_tangmen_t1', name: '机簧袖弩', slot: 'weapon', sect: 'tangmen', tier: 1,
+      bonus: { neili: 1, gengu: 1, shenfa: 2 }, price: 350 },
+    { id: 'armor_tangmen_t1', name: '蜀锦软甲', slot: 'armor', sect: 'tangmen', tier: 1,
+      bonus: { gengu: 3, shenfa: 1 }, price: 350 },
+    { id: 'boots_tangmen_t1', name: '无音软底靴', slot: 'boots', sect: 'tangmen', tier: 1,
+      bonus: { shenfa: 4 }, price: 350 },
+    { id: 'charm_tangmen_t1', name: '淬毒针囊', slot: 'charm', sect: 'tangmen', tier: 1,
+      bonus: { shenfa: 2, wuxing: 2 }, price: 350 }
+  ];
+
   global.WUXIA = { STATS: STATS, REALMS: REALMS, SECTS: SECTS, SKILLS: SKILLS,
                    FOES: FOES, EVENTS: EVENTS, PET_BONUSES: PET_BONUSES,
-                   TASK_HOURS: TASK_HOURS };
+                   TASK_HOURS: TASK_HOURS, GEAR: GEAR };
 })(window);
