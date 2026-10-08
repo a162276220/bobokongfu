@@ -841,6 +841,109 @@ if (gearDup) {
     J().log.some(function (l) { return l.t.indexOf('折算') >= 0; }), J().log && J().log[0]);
   sane('事件重复折算后');
 }
+/* ---------- H. 界面三张卡片（Task 6：装备 / 行囊 / 货栈 接入 render） ---------- */
+function hRender() { try { return Jianghu.render(); } catch (e) { return 'ERR:' + (e && e.message); } }
+function shopOnly(html) { const i = html.indexOf('货栈'); return i < 0 ? '' : html.slice(i); }
+
+// H1 空背包：三张卡片区块都出现
+resetGame();
+const hEmpty = hRender();
+check('H1 空背包渲染含「装备」「行囊」「货栈」三区块',
+  ['装备', '行囊', '货栈'].every((k) => hEmpty.includes(k)),
+  ['装备', '行囊', '货栈'].filter((k) => !hEmpty.includes(k)));
+
+// H2 四个槽位名出现；空槽位显示占位文案
+resetGame();
+J().gear = { owned: {}, equipped: gEquip() };
+const hSlots = hRender();
+check('H2 四个槽位名都出现（武器/护甲/靴子/佩饰）',
+  ['武器', '护甲', '靴子', '佩饰'].every((k) => hSlots.includes(k)),
+  ['武器', '护甲', '靴子', '佩饰'].filter((k) => !hSlots.includes(k)));
+check('H2 未穿槽位显示占位文案', hSlots.includes('未穿戴'),
+  hSlots.slice(Math.max(0, hSlots.indexOf('装备')), hSlots.indexOf('装备') + 260));
+
+// H3 已穿装备显示名称与强化等级
+resetGame();
+J().gear = { owned: { weapon_general_t1: { lvl: 2 } }, equipped: gEquip({ weapon: 'weapon_general_t1' }) };
+const hWorn = hRender();
+check('H3 已穿装备显示装备名与强化等级',
+  hWorn.includes('百炼雁翎刀') && hWorn.includes('+2'), hWorn.slice(0, 500));
+
+// H4 已拥有：出现在行囊、不在货栈
+resetGame();
+J().gear = { owned: { weapon_general_t0: { lvl: 0 } }, equipped: gEquip() };
+const hOwn = hRender();
+const shop4 = shopOnly(hOwn);
+check('H4 已拥有装备出现在行囊', hOwn.includes('白铁短刀'), hOwn.slice(0, 400));
+check('H4 已拥有装备不在货栈', !shop4.includes('白铁短刀'), shop4.slice(0, 200));
+
+// H5 门派款可见性：本门款货栈标价 350 / 别派款不见 / 未入门派不见
+resetGame();
+J().sect = 'shaolin';
+J().taels = 999;
+J().gear = { owned: {}, equipped: gEquip() };
+const hSha = hRender();
+const shopSha = shopOnly(hSha);
+check('H5 本门少林款在货栈且标价 350', shopSha.includes('齐眉铁棍') && shopSha.includes('350'), shopSha.slice(0, 260));
+check('H5 别派武当款不在货栈', !shopSha.includes('七星长剑'), shopSha.slice(0, 260));
+
+resetGame();
+J().gear = { owned: {}, equipped: gEquip() };
+const hNoSect = hRender();
+check('H5 未入门时门派款不在货栈', !shopOnly(hNoSect).includes('齐眉铁棍'), shopOnly(hNoSect).slice(0, 120));
+
+// H6 银两不足：购入按钮 disabled；充足时可购（对照）
+resetGame();
+J().taels = 1;
+J().gear = { owned: {}, equipped: gEquip() };
+const hPoor = hRender();
+const poorBtn = hPoor.match(/<button[^>]*onclick="Jianghu\.buyGear\('weapon_general_t0'\)"[^>]*>/);
+check('H6 银两不足时购入按钮为 disabled', !!poorBtn && poorBtn[0].indexOf('disabled') >= 0, poorBtn && poorBtn[0]);
+
+resetGame();
+J().taels = 999;
+J().gear = { owned: {}, equipped: gEquip() };
+const hRich = hRender();
+const richBtn = hRich.match(/<button[^>]*onclick="Jianghu\.buyGear\('weapon_general_t0'\)"[^>]*>/);
+check('H6 银两充足时购入按钮可用（对照）', !!richBtn && richBtn[0].indexOf('disabled') < 0, richBtn && richBtn[0]);
+
+// H7 强化达上限：淬炼按钮 disabled；未到上限且银两充足时可淬炼（对照）
+resetGame();
+J().taels = 999;
+J().gear = { owned: { weapon_general_t0: { lvl: 2 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+const hMax = hRender();
+const capBtn = hMax.match(/<button[^>]*onclick="Jianghu\.upgradeGear\('weapon_general_t0'\)"[^>]*>/);
+check('H7 强化达上限时淬炼按钮 disabled', !!capBtn && capBtn[0].indexOf('disabled') >= 0, capBtn && capBtn[0]);
+
+resetGame();
+J().taels = 999;
+J().gear = { owned: { weapon_general_t0: { lvl: 1 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+const hMid = hRender();
+const midBtn = hMid.match(/<button[^>]*onclick="Jianghu\.upgradeGear\('weapon_general_t0'\)"[^>]*>/);
+check('H7 未到上限且银两充足淬炼按钮可用（对照）', !!midBtn && midBtn[0].indexOf('disabled') < 0, midBtn && midBtn[0]);
+
+// H8 已穿装备时，卡片上的加成合计 = gearBonus() 四维之和
+resetGame();
+J().stats = { neili: 0, gengu: 0, shenfa: 0, wuxing: 0 };
+J().gear = { owned: { weapon_general_t0: { lvl: 0 }, armor_general_t0: { lvl: 0 } },
+             equipped: gEquip({ weapon: 'weapon_general_t0', armor: 'armor_general_t0' }) };
+const hBonus = hRender();
+const gb8 = Jianghu.gearBonus();
+const gb8Sum = (gb8 && gb8.neili + gb8.gengu + gb8.shenfa + gb8.wuxing) || NaN;
+check('H8 卡片装备加成合计 = gearBonus() 之和（' + gb8Sum + '）',
+  hBonus.includes('装备加成 <b>+' + gb8Sum + '</b>'), { sum: gb8Sum, gb8 });
+
+// H9 三卡齐全的全套渲染不含 undefined / NaN
+resetGame();
+J().sect = 'shaolin';
+J().taels = 999;
+J().stats = { neili: 10, gengu: 10, shenfa: 10, wuxing: 10 };
+J().gear = { owned: { weapon_shaolin_t1: { lvl: 2 }, armor_shaolin_t1: { lvl: 1 }, boots_shaolin_t1: { lvl: 0 } },
+             equipped: gEquip({ weapon: 'weapon_shaolin_t1', armor: 'armor_shaolin_t1', boots: 'boots_shaolin_t1' }) };
+const hFinal = hRender();
+check('H9 三卡俱全的全套渲染无 undefined/NaN',
+  !hFinal.includes('undefined') && !hFinal.includes('NaN'),
+  (hFinal.match(/.{0,40}(undefined|NaN).{0,40}/) || [''])[0]);
 console.log(lines.join('\n'));
 console.log('VERDICT ' + (failures === 0 ? 'ALL-PASS' : 'HAS-FAILURES (' + failures + ')'));
 process.exitCode = failures === 0 ? 0 : 1;

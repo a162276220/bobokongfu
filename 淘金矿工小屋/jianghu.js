@@ -757,6 +757,82 @@
       + ' 个时辰，领金币的那一下就是这里的柴。</span></div></div>';
   }
 
+  /* ---------- 装备三卡：身上的装备 / 行囊 / 货栈 ---------- */
+  var SLOT_NAMES = { weapon: '武器', armor: '护甲', boots: '靴子', charm: '佩饰' };
+  var TIER_NAMES = { 0: '凡品', 1: '精良', 2: '珍品' };
+
+  function gearHtml() {
+    var j = state(), gear = j.gear || { owned: {}, equipped: {} }, gb = gearBonus();
+    var total = (gb.neili || 0) + (gb.gengu || 0) + (gb.shenfa || 0) + (gb.wuxing || 0);
+    var rows = SLOTS.map(function (slot) {
+      var id = gear.equipped[slot];
+      var item = id ? gearItem(id) : null;
+      if (!item) {
+        return '<div style="display:flex;align-items:center;gap:8px;padding:2px 0;">'
+          + '<span style="width:40px;opacity:.7;">' + SLOT_NAMES[slot] + '</span>'
+          + '<span style="opacity:.5;">（未穿戴）</span></div>';
+      }
+      var entry = gear.owned[id] || { lvl: 0 };
+      var lvl = typeof entry.lvl === 'number' ? entry.lvl : 0;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:2px 0;">'
+        + '<span style="width:40px;opacity:.7;">' + SLOT_NAMES[slot] + '</span>'
+        + '<span>' + esc(item.name) + ' <span style="opacity:.7;">+' + lvl + '</span></span>'
+        + '<span style="flex:1;"></span>'
+        + '<button class="btn btn-outline" style="padding:2px 10px;font-size:12px;" onclick="Jianghu.unequipGear(\'' + slot + '\')">卸下</button>'
+        + '</div>';
+    });
+    return '<div class="card"><div class="mh-title" style="padding:8px 4px;">装备</div>'
+      + '<div style="padding:0 4px 4px;font-size:13px;line-height:2.2;">' + rows.join('') + '</div>'
+      + '<div class="mh-desc" style="padding:0 4px 8px;">装备加成 <b>+' + total + '</b>｜战力 <b>' + power() + '</b></div></div>';
+  }
+
+  function bagHtml() {
+    var j = state(), gear = j.gear || { owned: {}, equipped: {} };
+    var ids = Object.keys(gear.owned);
+    if (!ids.length) {
+      return '<div class="card"><div class="mh-title" style="padding:8px 4px;">行囊</div>'
+        + '<div class="mh-desc" style="padding:0 4px 8px;">行囊空空，去货栈挑一件，或出门碰碰运气。</div></div>';
+    }
+    var rows = ids.map(function (id) {
+      var item = gearItem(id);
+      if (!item) return '';
+      var entry = gear.owned[id] || { lvl: 0 };
+      var lvl = typeof entry.lvl === 'number' ? entry.lvl : 0;
+      var worn = gear.equipped[item.slot] === id;
+      var cap = gearTierCap(item), atCap = lvl >= cap, cost = upgradeCost(item, lvl);
+      var canUp = !atCap && j.taels >= cost;
+      var wearBtn = worn
+        ? '<button class="btn btn-outline" disabled>已穿戴</button>'
+        : '<button class="btn btn-outline" onclick="Jianghu.equipGear(\'' + id + '\')">穿上</button>';
+      var upBtn = '<button class="btn btn-outline" ' + (canUp ? '' : 'disabled ')
+        + 'onclick="Jianghu.upgradeGear(\'' + id + '\')">' + (atCap ? '已至上限' : '淬炼 ' + cost + ' 两') + '</button>';
+      return '<tr><td>' + esc(item.name) + ' +' + lvl
+        + '<div style="opacity:.6;font-size:11px;">' + SLOT_NAMES[item.slot] + ' · ' + TIER_NAMES[item.tier] + '</div></td>'
+        + '<td style="width:150px;"><div style="display:flex;gap:6px;">' + wearBtn + upBtn + '</div></td></tr>';
+    });
+    return '<div class="card"><div class="mh-title" style="padding:8px 4px;">行囊</div>'
+      + '<table class="table" style="width:100%;">' + rows.join('') + '</table></div>';
+  }
+
+  function shopHtml() {
+    var j = state(), gear = j.gear || { owned: {}, equipped: {} }, mine = gear.owned || {};
+    var rows = WUXIA.GEAR.filter(function (g) {
+      if (mine[g.id]) return false;
+      if (g.sect && g.sect !== j.sect) return false;
+      return true;
+    }).map(function (g) {
+      var afford = j.taels >= g.price;
+      return '<tr><td>' + esc(g.name)
+        + '<div style="opacity:.6;font-size:11px;">' + SLOT_NAMES[g.slot] + ' · ' + TIER_NAMES[g.tier] + '</div></td>'
+        + '<td style="width:70px;">' + g.price + ' 两</td>'
+        + '<td style="width:90px;"><button class="btn btn-gold" ' + (afford ? '' : 'disabled ')
+        + 'onclick="Jianghu.buyGear(\'' + g.id + '\')">购入</button></td></tr>';
+    });
+    return '<div class="card"><div class="mh-title" style="padding:8px 4px;">货栈</div>'
+      + '<div class="mh-desc" style="padding:0 4px 4px;">行商只卖你还没有的货，门派款只对本门开架。</div>'
+      + '<table class="table" style="width:100%;">' + rows.join('') + '</table></div>';
+  }
+
   function logHtml() {
     var j = state();
     return '<div class="card"><div class="mh-title" style="padding:8px 4px;">近事</div>'
@@ -774,6 +850,7 @@
     sanitize();
     rollDay();
     return cardHtml() + sectHtml() + actionsHtml()
+      + gearHtml() + bagHtml() + shopHtml()
       + (state().duel ? duelHtml() : eventHtml())
       + skillsHtml() + logHtml();
   }
@@ -781,6 +858,7 @@
   global.Jianghu = { render: render, sanitize: sanitize, earnHours: earnHours, cultivate: cultivate, learn: learn,
                      adventure: adventure, choose: choose, decline: decline, spar: spar,
                      joinSect: joinSect, realm: realm, power: power, stats: stats,
+                     gearHtml: gearHtml, bagHtml: bagHtml, shopHtml: shopHtml,
                      mainStat: mainStat, gearBonus: gearBonus, setBonus: setBonus,
                      upgradeCost: upgradeCost, buyGear: buyGear, equipGear: equipGear,
                      unequipGear: unequipGear, upgradeGear: upgradeGear,
