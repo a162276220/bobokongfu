@@ -233,6 +233,19 @@ function gearSave(owned, equipped) {
     J().gear);
 }
 {
+  healthy();
+  J().gear.owned['weapon_general_t0'] = 5;
+  J().gear.owned['armor_general_t1'] = null;
+  J().gear.owned['boots_general_t2'] = 'x';
+  const h1 = Jianghu.sanitize();
+  const h2 = Jianghu.sanitize();
+  check('non-object owned entries rebuilt to {lvl:0}',
+    J().gear.owned['weapon_general_t0'].lvl === 0 &&
+    J().gear.owned['armor_general_t1'].lvl === 0 &&
+    J().gear.owned['boots_general_t2'].lvl === 0);
+  check('self-heal idempotent: first true, second false', h1 === true && h2 === false);
+}
+{
   // 整个 gear 键都没有的旧存档（真实入口是 ensureFields，这里守住兜底路径）
   healthy();
   delete J().gear;
@@ -262,6 +275,24 @@ function gearSave(owned, equipped) {
   check('G7 健康装备存档一字不动',
     r.ok && r.value === false && JSON.stringify(J().gear) === before,
     r.ok ? { value: r.value, after: JSON.stringify(J().gear) } : r.error);
+}
+
+{
+  // 行囊里的 owned 条目若不是对象（数字 / null / 字符串）也要自愈成 { lvl: 0 }
+  gearSave({ weapon_general_t0: 5, armor_shaolin_t1: null },
+           { weapon: null, armor: null, boots: null, charm: null });
+  const first = Jianghu.sanitize();
+  check('G7 数字与 null 的 owned 条目被自愈成 { lvl: 0 }',
+    J().gear.owned.weapon_general_t0.lvl === 0 && J().gear.owned.armor_shaolin_t1.lvl === 0,
+    J().gear.owned);
+  check('G7 自愈后的 owned 条目强化值是数字',
+    typeof J().gear.owned.weapon_general_t0.lvl === 'number' && typeof J().gear.owned.armor_shaolin_t1.lvl === 'number',
+    J().gear.owned);
+  const snapshot = JSON.stringify(J().gear);
+  const second = Jianghu.sanitize();
+  check('G7 非对象 owned 条目自愈第一次报告有改动', first === true, first);
+  check('G7 非对象 owned 条目自愈幂等：第二次不再改动',
+    second === false && JSON.stringify(J().gear) === snapshot, { second: second });
 }
 
 /* ---------- 8. 静态：migrateState 重复行已清 ---------- */

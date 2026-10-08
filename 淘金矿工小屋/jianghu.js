@@ -130,6 +130,9 @@
     SLOTS.forEach(function (slot) {
       if (gear.equipped[slot] === undefined) { gear.equipped[slot] = null; structFixed = true; }
     });
+    Object.keys(gear.owned).forEach(function (id) {
+      if (!plainObject(gear.owned[id])) { gear.owned[id] = { lvl: 0 }; structFixed = true; }
+    });
     if (gear !== j.gear) j.gear = gear;
     if (structFixed) { log('行囊里的旧账已经记乱，索性重新记过一本。'); changed = true; }
 
