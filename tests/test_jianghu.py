@@ -40,7 +40,8 @@ def report():
     node = shutil.which('node')
     if not node:
         pytest.skip('node is not on PATH')
-    proc = subprocess.run([node, str(HARNESS)], capture_output=True, text=True)
+    proc = subprocess.run([node, str(HARNESS)], capture_output=True, text=True,
+                          encoding='utf-8')
     assert proc.returncode == 0, proc.stderr[:2000]
     return json.loads(proc.stdout)
 
@@ -51,7 +52,8 @@ def test_the_wuxia_modules_parse_as_javascript():
     if not node:
         pytest.skip('node is not on PATH')
     for path in (CONTENT, ENGINE):
-        proc = subprocess.run([node, '--check', str(path)], capture_output=True, text=True)
+        proc = subprocess.run([node, '--check', str(path)], capture_output=True, text=True,
+                              encoding='utf-8')
         assert proc.returncode == 0, (path.name, proc.stderr[:400])
 
 
@@ -195,3 +197,13 @@ def _jianghu_default(html):
             if depth == 0:
                 return html[start:i + 1]
         i += 1
+
+
+# ---------- 过渡期脚本接线 ----------
+
+@pytest.mark.parametrize('suite', ['jianghu-verify.mjs', 'jianghu-gaps.mjs'])
+def test_node_suite_passes(suite):
+    """过渡期的两套 node 校验收进唯一测试入口，谁的退出码非 0 都算回归失败。"""
+    proc = subprocess.run(['node', str(ROOT / 'tests' / suite)],
+                          capture_output=True, text=True, encoding='utf-8')
+    assert proc.returncode == 0, proc.stdout[-2000:] + proc.stderr[-2000:]
