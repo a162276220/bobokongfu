@@ -63,6 +63,10 @@ function healthy() {
     stats: { neili: 12, gengu: 12, shenfa: 12, wuxing: 12 },
     skills: { tuna: 2, luohan: 1 }, log: [], recent: [ev.id],
     pending: null, duel: null, today: { date: sandbox.todayStr(), adventures: 2 },
+    gear: {
+      owned: { weapon_general_t0: { lvl: 1 }, armor_shaolin_t1: { lvl: 0 } },
+      equipped: { weapon: 'weapon_general_t0', armor: 'armor_shaolin_t1', boots: null, charm: null },
+    },
     wins: 1, losses: 0,
   };
   return { ev, foe };
@@ -171,13 +175,102 @@ function healthy() {
   check('三处失效引用一次清完', J().pending === null && J().duel === null && J().sect === null);
 }
 
-/* ---------- 7. 静态：migrateState 重复行已清 ---------- */
+/* ---------- 7. 装备：失效 id、坏结构与越界强化 ---------- */
+const SLOTS = ['weapon', 'armor', 'boots', 'charm'];
+function gearSave(owned, equipped) {
+  healthy();
+  J().gear = { owned: owned, equipped: equipped };
+}
+{
+  // 行囊里混进两件已经删掉的装备：render 不能崩，键要清掉，合法件保留
+  gearSave({ weapon_that_no_longer_exists: { lvl: 1 }, armor_that_no_longer_exists: { lvl: 1 },
+             weapon_general_t0: { lvl: 1 } },
+           { weapon: null, armor: null, boots: null, charm: null });
+  const r = attempt(() => Jianghu.render());
+  check('G7 行囊里有已删装备时 render() 不抛异常', r.ok, r.ok ? undefined : r.error);
+  check('G7 已删装备被清掉、合法件保留、强化值不动',
+    Object.keys(J().gear.owned).join() === 'weapon_general_t0' && J().gear.owned.weapon_general_t0.lvl === 1,
+    J().gear.owned);
+  check('G7 同类清理只写一条江湖记事', J().log.length === 1, J().log.map((l) => l.t));
+}
+{
+  // 身上穿的：一件已被删，一件从没进过行囊
+  gearSave({ weapon_general_t0: { lvl: 1 } },
+           { weapon: 'weapon_that_no_longer_exists', armor: 'armor_general_t2', boots: null, charm: null });
+  const r = attempt(() => Jianghu.sanitize());
+  check('G7 已穿装备被删后身上置空', r.ok && J().gear.equipped.weapon === null, J().gear.equipped);
+  check('G7 不在行囊里的装备从身上取下', r.ok && J().gear.equipped.armor === null, J().gear.equipped);
+}
+{
+  // 非法槽位键是删键，不是置空
+  gearSave({ weapon_general_t0: { lvl: 0 } },
+           { weapon: null, armor: null, boots: null, charm: null, ring: 'weapon_general_t0' });
+  Jianghu.sanitize();
+  check('G7 非法槽位键被删除、四个正槽还在',
+    !('ring' in J().gear.equipped) && SLOTS.every((s) => s in J().gear.equipped),
+    Object.keys(J().gear.equipped));
+}
+{
+  // 强化上限按品阶：凡 2 级、精 4 级、珍 6 级
+  gearSave({ weapon_general_t0: { lvl: 9 }, armor_shaolin_t1: { lvl: 9 }, boots_general_t2: { lvl: 9 },
+             charm_general_t1: { lvl: 3 } },
+           { weapon: null, armor: null, boots: null, charm: null });
+  Jianghu.sanitize();
+  check('G7 凡品强化截到 2 级', J().gear.owned.weapon_general_t0.lvl === 2, J().gear.owned.weapon_general_t0);
+  check('G7 精品强化截到 4 级', J().gear.owned.armor_shaolin_t1.lvl === 4, J().gear.owned.armor_shaolin_t1);
+  check('G7 珍品强化截到 6 级', J().gear.owned.boots_general_t2.lvl === 6, J().gear.owned.boots_general_t2);
+  check('G7 上限之内的强化原样保留', J().gear.owned.charm_general_t1.lvl === 3, J().gear.owned.charm_general_t1);
+}
+{
+  // ensureFields 只补一层：gear 内层坏了得 sanitize 自己兜
+  healthy();
+  J().gear = { owned: [], equipped: 'weapon' };
+  const r = attempt(() => Jianghu.render());
+  check('G7 行囊是数组、装备是字符串时不抛异常', r.ok, r.ok ? undefined : r.error);
+  check('G7 坏掉的 gear 内层被重建成合法结构',
+    r.ok && !Array.isArray(J().gear.owned) && !!J().gear.owned && typeof J().gear.owned === 'object'
+      && SLOTS.every((s) => J().gear.equipped[s] === null) && Object.keys(J().gear.equipped).length === 4,
+    J().gear);
+}
+{
+  // 整个 gear 键都没有的旧存档（真实入口是 ensureFields，这里守住兜底路径）
+  healthy();
+  delete J().gear;
+  const r = attempt(() => Jianghu.sanitize());
+  check('G7 存档没有 gear 键时 sanitize 不抛异常', r.ok, r.ok ? undefined : r.error);
+  check('G7 缺 gear 键时补出四槽空结构',
+    r.ok && !!J().gear && !!J().gear.owned && SLOTS.every((s) => J().gear.equipped[s] === null),
+    r.ok ? J().gear : null);
+}
+{
+  // 自愈要可重复调用（幂等）
+  gearSave({ weapon_gone: { lvl: 9 } },
+           { weapon: 'weapon_gone', armor: 'armor_general_t2', boots: null, charm: null, ring: 'x' });
+  const first = Jianghu.sanitize();
+  const snapshot = JSON.stringify(J().gear);
+  const second = Jianghu.sanitize();
+  check('G7 装备自愈第一次报告有改动', first === true, first);
+  check('G7 装备自愈幂等：第二次不再改动',
+    second === false && JSON.stringify(J().gear) === snapshot, { second: second });
+}
+{
+  // 健康的装备存档（已穿两件、强化在限内）一字不动
+  gearSave({ weapon_general_t0: { lvl: 1 }, armor_shaolin_t1: { lvl: 4 } },
+           { weapon: 'weapon_general_t0', armor: 'armor_shaolin_t1', boots: null, charm: null });
+  const before = JSON.stringify(J().gear);
+  const r = attempt(() => Jianghu.sanitize());
+  check('G7 健康装备存档一字不动',
+    r.ok && r.value === false && JSON.stringify(J().gear) === before,
+    r.ok ? { value: r.value, after: JSON.stringify(J().gear) } : r.error);
+}
+
+/* ---------- 8. 静态：migrateState 重复行已清 ---------- */
 {
   const dup = (appSrc.match(/newState\.jianghu = oldState\.jianghu \|\| newState\.jianghu;/g) || []).length;
   check('G6 migrateState 里 jianghu 赋值只剩一行', dup === 1, { count: dup });
 }
 
-/* ---------- 8. 静态：jianghu.js 的关键守卫都已就位 ---------- */
+/* ---------- 9. 静态：jianghu.js 的关键守卫都已就位 ---------- */
 {
   const jh = fs.readFileSync(WB + '\\jianghu.js', 'utf8');
   check('jianghu.js 定义了 sanitize()', /function sanitize\(\)/.test(jh));

@@ -15,6 +15,7 @@
   var DAILY_ADVENTURES = 6;      // 每天最多闯荡几次，防止把它当刷子
   var HOUR_EXP = 10;             // 一个时辰打底能悟出多少修为
   var LOG_KEEP = 12;
+  var SLOTS = ['weapon', 'armor', 'boots', 'charm'];   // 装备槽位固定四个，顺序即行囊与身上的排列
 
   function state() { return getState().jianghu; }
   function save() { saveState(); }
@@ -78,6 +79,13 @@
   }
   function maxHp() { return 60 + stats().gengu * 6 + realmIndex() * 30; }
 
+  /* ---------- 装备 ---------- */
+  function gearItem(id) {
+    return WUXIA.GEAR.filter(function (g) { return g.id === id; })[0] || null;
+  }
+  // 品阶 → 强化上限：凡 2 级、精 4 级、珍 6 级（不是 tier 本身那个 0/1/2）。
+  function gearTierCap(item) { return (item.tier + 1) * 2; }
+
   /* ---------- 存档自愈 ----------
      存档里存的是内容 id（pending.id / duel.foe / sect / skills 的键）。内容表一旦
      改名或删条目，旧存档就会指向不存在的东西，裸下标访问会让整个江湖页渲染崩掉。
@@ -88,6 +96,7 @@
     function knownEvent(id) { return WUXIA.EVENTS.some(function (e) { return e.id === id; }); }
     function knownFoe(id) { return WUXIA.FOES.some(function (f) { return f.id === id; }); }
     function knownSect(id) { return WUXIA.SECTS.some(function (s) { return s.id === id; }); }
+    function plainObject(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
 
     if (j.duel && !knownFoe(j.duel.foe)) {
       j.duel = null;
@@ -111,6 +120,45 @@
         changed = true;
       }
     });
+
+    /* 装备段：行囊（owned）与身上（equipped）记的也是内容 id，内容表一改就会指空。
+       先规整结构，再校验引用，最后把越界的强化截回品阶上限。 */
+    var gear = j.gear, structFixed = false;
+    if (!plainObject(gear)) { gear = {}; structFixed = true; }
+    if (!plainObject(gear.owned)) { gear.owned = {}; structFixed = true; }
+    if (!plainObject(gear.equipped)) { gear.equipped = {}; structFixed = true; }
+    SLOTS.forEach(function (slot) {
+      if (gear.equipped[slot] === undefined) { gear.equipped[slot] = null; structFixed = true; }
+    });
+    if (gear !== j.gear) j.gear = gear;
+    if (structFixed) { log('行囊里的旧账已经记乱，索性重新记过一本。'); changed = true; }
+
+    var junkSlots = 0;
+    Object.keys(gear.equipped).forEach(function (slot) {
+      if (SLOTS.indexOf(slot) < 0) { delete gear.equipped[slot]; junkSlots++; }
+    });
+    if (junkSlots) { log('身上多了件叫不出名目的物件，随手解了下来。'); changed = true; }
+
+    var lostItems = 0;
+    Object.keys(gear.owned).forEach(function (id) {
+      if (!gearItem(id)) { delete gear.owned[id]; lostItems++; }
+    });
+    if (lostItems) { log('行囊里那几件旧物已经绝迹江湖，名目都记不起来了。'); changed = true; }
+
+    var looseItems = 0;
+    SLOTS.forEach(function (slot) {
+      var id = gear.equipped[slot];
+      if (id !== null && !gear.owned[id]) { gear.equipped[slot] = null; looseItems++; }
+    });
+    if (looseItems) { log('身上那件东西已经不在行囊里，只好先空着。'); changed = true; }
+
+    var overSharpened = 0;
+    Object.keys(gear.owned).forEach(function (id) {
+      var entry = gear.owned[id], cap = gearTierCap(gearItem(id));
+      if (entry && typeof entry.lvl === 'number' && entry.lvl > cap) { entry.lvl = cap; overSharpened++; }
+    });
+    if (overSharpened) { log('旧物淬炼过了头，回落到它本来的分量。'); changed = true; }
+
     if (changed) save();
     return changed;
   }

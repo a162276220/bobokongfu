@@ -167,10 +167,15 @@ def test_every_adoptable_pet_has_a_jianghu_role(html, report):
 
 def _top_level_keys(block):
     """去掉嵌套对象后剩下的那层键名 —— ensureFields 只会补到这一层。"""
-    inner = block
-    while re.search(r'\{[^{}]+\}', inner):
-        inner = re.sub(r'\{[^{}]+\}', '{}', inner)
-    return set(re.findall(r'(\w+):', inner))
+    depth, flat = 0, []
+    for ch in block:
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+        elif depth == 1:
+            flat.append(ch)
+    return set(re.findall(r'(\w+):', ''.join(flat)))
 
 
 def _jianghu_default(html):
