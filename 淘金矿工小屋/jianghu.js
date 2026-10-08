@@ -137,6 +137,86 @@
     return out;
   }
 
+  /* ---------- 装备四动作：买 / 穿 / 卸 / 强化 ---------- */
+  // 强化费用：每级按当前等级线性加价，即 原价 × 25% × (等级+1)。
+  function upgradeCost(item, currentLvl) {
+    return Math.round(item.price * 0.25 * (currentLvl + 1));
+  }
+  // 行囊唯一落账点：买与（将来 Task 5 的）任务发放都从这里把一件 0 级装备放进行囊。
+  function ownGear(id) {
+    state().gear.owned[id] = { lvl: 0 };
+  }
+  function buyGear(id) {
+    var j = state();
+    var item = gearItem(id);
+    if (!item) return;
+    if (j.gear.owned[id]) {
+      showToast('这件你已经有了', 'warning'); return;
+    }
+    if (item.sect && item.sect !== j.sect) {
+      showToast('那是' + sectName(item.sect) + '的门派款，先拜对门派再来', 'warning'); return;
+    }
+    if (j.taels < item.price) {
+      showToast('银两不足，还需 ' + (item.price - j.taels) + ' 两', 'warning'); return;
+    }
+    j.taels -= item.price;
+    ownGear(id);
+    log('🛒 从行商处买下「' + item.name + '」，花去 ' + item.price + ' 两。');
+    save();
+    rerender();
+  }
+  function equipGear(id) {
+    var j = state();
+    var item = gearItem(id);
+    if (!item) return;
+    if (!j.gear.owned[id]) {
+      showToast('行囊里没有这件装备', 'warning'); return;
+    }
+    if (j.gear.equipped[item.slot] === id) {
+      showToast('它已经穿在身上了', 'info'); return;
+    }
+    j.gear.equipped[item.slot] = id;
+    log('你穿上了「' + item.name + '」。');
+    save();
+    rerender();
+  }
+  function unequipGear(slot) {
+    var j = state();
+    if (SLOTS.indexOf(slot) < 0) {
+      showToast('没有这样的槽位', 'warning'); return;
+    }
+    var oldId = j.gear.equipped[slot];
+    if (oldId === null || oldId === undefined) {
+      showToast('这个槽位本来就是空的', 'warning'); return;
+    }
+    j.gear.equipped[slot] = null;
+    var oldItem = gearItem(oldId);
+    log('你卸下了' + (oldItem ? '「' + oldItem.name + '」' : '那件旧物') + '。');
+    save();
+    rerender();
+  }
+  function upgradeGear(id) {
+    var j = state();
+    var item = gearItem(id);
+    if (!item) return;
+    var entry = j.gear.owned[id];
+    if (!entry) {
+      showToast('行囊里没有这件装备', 'warning'); return;
+    }
+    if (entry.lvl >= gearTierCap(item)) {
+      showToast('已淬炼到顶，再练只会折损锋芒', 'warning'); return;
+    }
+    var cost = upgradeCost(item, entry.lvl);
+    if (j.taels < cost) {
+      showToast('银两不足，还需 ' + cost + ' 两', 'warning'); return;
+    }
+    j.taels -= cost;
+    entry.lvl += 1;
+    log('你淬炼「' + item.name + '」至 +' + entry.lvl + '，耗去 ' + cost + ' 两。');
+    save();
+    rerender();
+  }
+
   /* ---------- 存档自愈 ----------
      存档里存的是内容 id（pending.id / duel.foe / sect / skills 的键）。内容表一旦
      改名或删条目，旧存档就会指向不存在的东西，裸下标访问会让整个江湖页渲染崩掉。
@@ -667,6 +747,8 @@
                      adventure: adventure, choose: choose, decline: decline, spar: spar,
                      joinSect: joinSect, realm: realm, power: power, stats: stats,
                      mainStat: mainStat, gearBonus: gearBonus, setBonus: setBonus,
+                     upgradeCost: upgradeCost, buyGear: buyGear, equipGear: equipGear,
+                     unequipGear: unequipGear, upgradeGear: upgradeGear,
                      _pickEvent: pickEvent };
   global.init_jianghu = function () {};
 })(window);

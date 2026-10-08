@@ -540,6 +540,127 @@ const sum48 = gb48 ? gb48.neili + gb48.gengu + gb48.shenfa + gb48.wuxing : NaN;
 check('四槽珍品满强化四维合计恰为 48', !gbErr48 && gb48 && sum48 === 48
   && gb48.neili === 9 && gb48.gengu === 15 && gb48.shenfa === 12 && gb48.wuxing === 12, { gb48, sum48, err: gbErr48 && gbErr48.message });
 
+/* ---------- F. 装备四动作（Task 4：买 / 穿 / 卸 / 强化） ---------- */
+// F1 买：成功扣价且入囊 / 银两不足 / 已拥有 / 别派门派款 / 未入门派款
+const gw0 = WUXIA.GEAR.filter((g) => g.id === 'weapon_general_t0')[0];
+
+resetGame();
+J().taels = 500;
+J().gear = { owned: {}, equipped: gEquip() };
+Jianghu.buyGear('weapon_general_t0');
+check('buyGear 成功：扣 price 且 owned[id].lvl === 0',
+  J().taels === 500 - gw0.price && !!J().gear.owned.weapon_general_t0 && J().gear.owned.weapon_general_t0.lvl === 0,
+  { taels: J().taels, owned: J().gear.owned });
+sane('buyGear 成功后');
+const tOwned = J().taels;
+Jianghu.buyGear('weapon_general_t0');
+check('buyGear 已拥有 → 被拒且 taels 不变', J().taels === tOwned && Object.keys(J().gear.owned).length === 1, { taels: J().taels });
+
+resetGame();
+J().taels = 5; // 低于 weapon_general_t0 的 90 两
+J().gear = { owned: {}, equipped: gEquip() };
+Jianghu.buyGear('weapon_general_t0');
+check('buyGear 银两不足 → 被拒且 taels 不变', J().taels === 5 && !J().gear.owned.weapon_general_t0, { taels: J().taels });
+sane('buyGear 银两不足拒后');
+
+resetGame();
+J().sect = 'shaolin';
+J().taels = 999;
+J().gear = { owned: {}, equipped: gEquip() };
+Jianghu.buyGear('weapon_wudang_t1');
+check('buyGear 别派门派款 → 被拒', J().taels === 999 && !J().gear.owned.weapon_wudang_t1, { taels: J().taels });
+
+resetGame();
+J().sect = null;
+J().taels = 999;
+J().gear = { owned: {}, equipped: gEquip() };
+Jianghu.buyGear('weapon_shaolin_t1');
+check('buyGear 未入门派时门派款 → 被拒', J().taels === 999 && !J().gear.owned.weapon_shaolin_t1, { taels: J().taels });
+
+// F2 穿：未拥有被拒 / 穿上 / 同槽换不删仓 / 重复穿同一件幂等
+resetGame();
+J().gear = { owned: { weapon_general_t1: { lvl: 0 } }, equipped: gEquip() };
+Jianghu.equipGear('weapon_general_t0');       // 行囊里没有
+check('equipGear 未拥有 → 被拒', J().gear.equipped.weapon === null, J().gear.equipped);
+Jianghu.equipGear('weapon_general_t1');
+check('equipGear 成功：equipped[item.slot] === id', J().gear.equipped.weapon === 'weapon_general_t1', J().gear.equipped);
+
+// 幂等：同门派两件装备已穿齐，重复穿同一件不改变 setBonus 件数
+resetGame();
+J().sect = 'shaolin';
+J().gear = { owned: { weapon_shaolin_t1: { lvl: 0 }, armor_shaolin_t1: { lvl: 0 } },
+             equipped: gEquip({ weapon: 'weapon_shaolin_t1', armor: 'armor_shaolin_t1' }) };
+const setBefore = JSON.stringify(Jianghu.setBonus());
+Jianghu.equipGear('weapon_shaolin_t1');
+check('equipGear 重复同一件 → 幂等（equipped 与 setBonus 件数不变）',
+  J().gear.equipped.weapon === 'weapon_shaolin_t1' && JSON.stringify(Jianghu.setBonus()) === setBefore,
+  { equipped: J().gear.equipped, set: Jianghu.setBonus(), setBefore });
+sane('equipGear 幂等后');
+
+resetGame();
+J().gear = { owned: { weapon_general_t0: { lvl: 0 }, weapon_general_t1: { lvl: 0 } }, equipped: gEquip() };
+Jianghu.equipGear('weapon_general_t0');
+Jianghu.equipGear('weapon_general_t1');
+check('equipGear 穿第二件同槽 → 槽位换新且旧件仍在 owned 里',
+  J().gear.equipped.weapon === 'weapon_general_t1' && !!J().gear.owned.weapon_general_t0 && !!J().gear.owned.weapon_general_t1,
+  { equipped: J().gear.equipped, owned: J().gear.owned });
+sane('equipGear 后');
+
+// F3 卸：合法槽位置空 / 非法槽位被拒且状态不变
+resetGame();
+J().gear = { owned: { weapon_general_t0: { lvl: 0 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+Jianghu.unequipGear('weapon');
+check('unequipGear 合法槽位 → 置空且物品仍在 owned', J().gear.equipped.weapon === null && !!J().gear.owned.weapon_general_t0, J().gear.equipped);
+const snapPre = JSON.stringify(J().gear);
+Jianghu.unequipGear('leftHand');
+check('unequipGear 非法槽位 → 被拒且状态不变', JSON.stringify(J().gear) === snapPre, { gear: J().gear, snapPre });
+sane('unequipGear 后');
+
+// F4 强化：未拥有 / 已达上限 / 银两不足 / 成功扣费 / 恰好扣费到 0
+resetGame();
+J().taels = 999;
+J().gear = { owned: {}, equipped: gEquip() };
+Jianghu.upgradeGear('weapon_general_t1');
+check('upgradeGear 未拥有 → 被拒', J().taels === 999 && !J().gear.owned.weapon_general_t1, { taels: J().taels });
+
+resetGame();
+J().taels = 999;
+J().gear = { owned: { weapon_general_t0: { lvl: 2 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+Jianghu.upgradeGear('weapon_general_t0');
+check('upgradeGear 已达 gearTierCap → 被拒且 taels 不变',
+  J().taels === 999 && J().gear.owned.weapon_general_t0.lvl === 2, { taels: J().taels, lvl: J().gear.owned.weapon_general_t0.lvl });
+
+const ugItem = gw0;   // weapon_general_t0
+const cost0 = Math.round(ugItem.price * 0.25 * (0 + 1));
+resetGame();
+J().taels = 1;
+J().gear = { owned: { weapon_general_t0: { lvl: 0 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+Jianghu.upgradeGear('weapon_general_t0');
+check('upgradeGear 银两不足 → 被拒', J().taels === 1 && J().gear.owned.weapon_general_t0.lvl === 0, { taels: J().taels, lvl: J().gear.owned.weapon_general_t0.lvl });
+
+resetGame();
+J().taels = 999;
+J().gear = { owned: { weapon_general_t0: { lvl: 1 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+const cost1 = Math.round(gw0.price * 0.25 * (1 + 1));
+Jianghu.upgradeGear('weapon_general_t0');
+check('upgradeGear 成功：lvl+1 且 taels 减少 upgradeCost(item,lvl)',
+  J().gear.owned.weapon_general_t0.lvl === 2 && J().taels === 999 - cost1,
+  { lvl: J().gear.owned.weapon_general_t0.lvl, taels: J().taels });
+sane('upgradeGear 成功后');
+
+resetGame();
+const exact0 = Math.round(gw0.price * 0.25 * 1);   // 与 upgradeCost(item, 0) 一致
+J().taels = exact0;
+J().gear = { owned: { weapon_general_t0: { lvl: 0 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+Jianghu.upgradeGear('weapon_general_t0');
+check('upgradeGear 银两恰好等于消耗 → 成功且 taels === 0',
+  J().gear.owned.weapon_general_t0.lvl === 1 && J().taels === 0, { lvl: J().gear.owned.weapon_general_t0.lvl, taels: J().taels });
+sane('upgradeGear 恰好扣费后');
+
+// F5 强化费用公式
+check('upgradeCost(item, 0) === Math.round(price * 0.25)',
+  Jianghu.upgradeCost(WUXIA.GEAR.filter((g) => g.id === 'weapon_general_t0')[0], 0) === cost0, cost0);
+
 console.log(lines.join('\n'));
 console.log('VERDICT ' + (failures === 0 ? 'ALL-PASS' : 'HAS-FAILURES (' + failures + ')'));
 process.exitCode = failures === 0 ? 0 : 1;
