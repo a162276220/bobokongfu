@@ -944,6 +944,27 @@ const hFinal = hRender();
 check('H9 三卡俱全的全套渲染无 undefined/NaN',
   !hFinal.includes('undefined') && !hFinal.includes('NaN'),
   (hFinal.match(/.{0,40}(undefined|NaN).{0,40}/) || [''])[0]);
+// I. 装备卡观感：槽位图标 / 品阶胶囊 / 加成条 / 已穿戴徽章（样式钩子）
+resetGame();
+J().sect = 'shaolin';
+J().taels = 9999;
+J().stats = { neili: 0, gengu: 0, shenfa: 0, wuxing: 0 };
+J().gear = { owned: { weapon_shaolin_t1: { lvl: 4 }, armor_shaolin_t1: { lvl: 0 },
+                      boots_shaolin_t1: { lvl: 0 }, charm_shaolin_t1: { lvl: 0 } },
+             equipped: gEquip({ weapon: 'weapon_shaolin_t1', armor: 'armor_shaolin_t1',
+                                boots: 'boots_shaolin_t1', charm: 'charm_shaolin_t1' }) };
+const hStyle = hRender();
+const wantIcons = ['⚔️', '🛡️', '🥾', '📿'];
+check('I1 装备卡四槽带槽位图标（⚔️🛡️🥾📿）',
+  wantIcons.every((e) => hStyle.includes(e)), wantIcons.filter((e) => !hStyle.includes(e)));
+check('I2 装备加成条带 gear-summary 钩子', hStyle.includes('gear-summary'));
+check('I3 行囊里已穿戴带 gear-worn 徽章钩子', hStyle.includes('gear-worn'));
+check('I4 行囊/货栈品阶胶囊带 tier-0/1/2 类',
+  hStyle.includes('tier-0') && hStyle.includes('tier-1') && hStyle.includes('tier-2'));
+const appCss = fs.readFileSync(HTML, 'utf8');
+check('I5 HTML 样式已定义 gear-* 观感类（slot/tier/summary/worn）',
+  ['.gear-slot-icon', '.gear-tier', '.gear-summary', '.gear-worn'].every((c) => appCss.includes(c)),
+  ['.gear-slot-icon', '.gear-tier', '.gear-summary', '.gear-worn'].filter((c) => !appCss.includes(c)));
 console.log(lines.join('\n'));
 console.log('VERDICT ' + (failures === 0 ? 'ALL-PASS' : 'HAS-FAILURES (' + failures + ')'));
 process.exitCode = failures === 0 ? 0 : 1;

@@ -694,7 +694,7 @@
         + 'onclick="Jianghu.learn(\'' + s.id + '\')">' + (level ? '精进' : '习得') + '</button></td></tr>';
     });
     return '<div class="card"><div class="mh-title" style="padding:8px 4px;">武学</div>'
-      + '<table class="table" style="width:100%;">' + rows.join('') + '</table></div>';
+      + '<table class="table gear-table" style="width:100%;">' + rows.join('') + '</table></div>';
   }
 
   function eventHtml() {
@@ -760,6 +760,18 @@
   /* ---------- 装备三卡：身上的装备 / 行囊 / 货栈 ---------- */
   var SLOT_NAMES = { weapon: '武器', armor: '护甲', boots: '靴子', charm: '佩饰' };
   var TIER_NAMES = { 0: '凡品', 1: '精良', 2: '珍品' };
+  var SLOT_ICONS = { weapon: '⚔️', armor: '🛡️', boots: '🥾', charm: '📿' };
+  var STAT_LABELS = { neili: '内力', gengu: '根骨', shenfa: '身法', wuxing: '悟性' };
+  function tierChip(it) {
+    return '<span class="gear-tier tier-' + it.tier + '">' + (TIER_NAMES[it.tier] || '?') + '</span>';
+  }
+  function bonusText(bon) {
+    var parts = [];
+    ['neili', 'gengu', 'shenfa', 'wuxing'].forEach(function (k) {
+      if (bon && bon[k]) parts.push((STAT_LABELS[k] || k) + '+' + bon[k]);
+    });
+    return parts.join('·');
+  }
 
   function gearHtml() {
     var j = state(), gear = j.gear || { owned: {}, equipped: {} }, gb = gearBonus();
@@ -768,22 +780,24 @@
       var id = gear.equipped[slot];
       var item = id ? gearItem(id) : null;
       if (!item) {
-        return '<div style="display:flex;align-items:center;gap:8px;padding:2px 0;">'
-          + '<span style="width:40px;opacity:.7;">' + SLOT_NAMES[slot] + '</span>'
+        return '<div class="gear-row"><span class="gear-slot-icon">' + SLOT_ICONS[slot] + '</span>'
+          + '<span class="gear-slot-name">' + SLOT_NAMES[slot] + '</span>'
           + '<span style="opacity:.5;">（未穿戴）</span></div>';
       }
       var entry = gear.owned[id] || { lvl: 0 };
       var lvl = typeof entry.lvl === 'number' ? entry.lvl : 0;
-      return '<div style="display:flex;align-items:center;gap:8px;padding:2px 0;">'
-        + '<span style="width:40px;opacity:.7;">' + SLOT_NAMES[slot] + '</span>'
-        + '<span>' + esc(item.name) + ' <span style="opacity:.7;">+' + lvl + '</span></span>'
+      return '<div class="gear-row"><span class="gear-slot-icon">' + SLOT_ICONS[slot] + '</span>'
+        + '<span class="gear-slot-name">' + SLOT_NAMES[slot] + '</span>'
+        + '<span class="gear-name">' + esc(item.name) + ' <span class="gear-lvl">+' + lvl + '</span></span>'
+        + tierChip(item)
+        + '<span class="gear-detail">' + bonusText(item.bonus) + '</span>'
         + '<span style="flex:1;"></span>'
         + '<button class="btn btn-outline" style="padding:2px 10px;font-size:12px;" onclick="Jianghu.unequipGear(\'' + slot + '\')">卸下</button>'
         + '</div>';
     });
     return '<div class="card"><div class="mh-title" style="padding:8px 4px;">装备</div>'
-      + '<div style="padding:0 4px 4px;font-size:13px;line-height:2.2;">' + rows.join('') + '</div>'
-      + '<div class="mh-desc" style="padding:0 4px 8px;">装备加成 <b>+' + total + '</b>｜战力 <b>' + power() + '</b></div></div>';
+      + '<div style="padding:0 4px;">' + rows.join('') + '</div>'
+      + '<div class="mh-desc" style="padding:6px 2px 6px;"><span class="gear-summary">装备加成 <b>+' + total + '</b>｜战力 <b>' + power() + '</b></span></div></div>';
   }
 
   function bagHtml() {
@@ -802,16 +816,17 @@
       var cap = gearTierCap(item), atCap = lvl >= cap, cost = upgradeCost(item, lvl);
       var canUp = !atCap && j.taels >= cost;
       var wearBtn = worn
-        ? '<button class="btn btn-outline" disabled>已穿戴</button>'
+        ? '<span class="gear-worn">已穿戴</span>'
         : '<button class="btn btn-outline" onclick="Jianghu.equipGear(\'' + id + '\')">穿上</button>';
       var upBtn = '<button class="btn btn-outline" ' + (canUp ? '' : 'disabled ')
         + 'onclick="Jianghu.upgradeGear(\'' + id + '\')">' + (atCap ? '已至上限' : '淬炼 ' + cost + ' 两') + '</button>';
-      return '<tr><td>' + esc(item.name) + ' +' + lvl
-        + '<div style="opacity:.6;font-size:11px;">' + SLOT_NAMES[item.slot] + ' · ' + TIER_NAMES[item.tier] + '</div></td>'
-        + '<td style="width:150px;"><div style="display:flex;gap:6px;">' + wearBtn + upBtn + '</div></td></tr>';
+      return '<tr><td><span class="gear-name">' + esc(item.name) + ' <span class="gear-lvl">+' + lvl + '</span></span> '
+        + tierChip(item)
+        + '<div class="gear-detail">' + SLOT_NAMES[item.slot] + ' · ' + bonusText(item.bonus) + '</div></td>'
+        + '<td style="width:178px;"><div style="display:flex;justify-content:flex-end;gap:6px;">' + wearBtn + upBtn + '</div></td></tr>';
     });
     return '<div class="card"><div class="mh-title" style="padding:8px 4px;">行囊</div>'
-      + '<table class="table" style="width:100%;">' + rows.join('') + '</table></div>';
+      + '<table class="table gear-table" style="width:100%;">' + rows.join('') + '</table></div>';
   }
 
   function shopHtml() {
@@ -822,15 +837,16 @@
       return true;
     }).map(function (g) {
       var afford = j.taels >= g.price;
-      return '<tr><td>' + esc(g.name)
-        + '<div style="opacity:.6;font-size:11px;">' + SLOT_NAMES[g.slot] + ' · ' + TIER_NAMES[g.tier] + '</div></td>'
-        + '<td style="width:70px;">' + g.price + ' 两</td>'
+      return '<tr><td><span class="gear-name">' + SLOT_ICONS[g.slot] + ' ' + esc(g.name) + '</span> '
+        + tierChip(g)
+        + '<div class="gear-detail">' + SLOT_NAMES[g.slot] + ' · ' + bonusText(g.bonus) + '</div></td>'
+        + '<td style="width:66px;text-align:right;white-space:nowrap;font-weight:600;color:var(--gold-dark);">' + g.price + ' 两</td>'
         + '<td style="width:90px;"><button class="btn btn-gold" ' + (afford ? '' : 'disabled ')
         + 'onclick="Jianghu.buyGear(\'' + g.id + '\')">购入</button></td></tr>';
     });
     return '<div class="card"><div class="mh-title" style="padding:8px 4px;">货栈</div>'
       + '<div class="mh-desc" style="padding:0 4px 4px;">行商只卖你还没有的货，门派款只对本门开架。</div>'
-      + '<table class="table" style="width:100%;">' + rows.join('') + '</table></div>';
+      + '<table class="table gear-table" style="width:100%;">' + rows.join('') + '</table></div>';
   }
 
   function logHtml() {
