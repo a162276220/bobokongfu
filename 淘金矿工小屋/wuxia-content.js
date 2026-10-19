@@ -301,28 +301,57 @@
   var PET_BONUSES = {
     byId: {
       'huhu-carrot': { label: '小太阳', bonus: { gengu: 1 } },
-      'huhu-carrot-3leaf': { label: '敲键盘的手速', bonus: { shenfa: 2 } },
-      'huhu-carrot-emotion': { label: '八种表情', bonus: { wuxing: 1 } },
-      'huhu-carrot-plush-emotion': { label: '毛绒表情', bonus: { wuxing: 1 } },
+      '3leaf': { label: '敲键盘的手速', bonus: { shenfa: 2 } },
+      'emotion': { label: '八种表情', bonus: { wuxing: 1 } },
+      'plush-emotion': { label: '毛绒表情', bonus: { wuxing: 1 } },
       'huhu-carrot-office': { label: '久坐不塌腰', bonus: { neili: 1 } },
       'raccoon-typing': { label: '熬夜不困', bonus: { neili: 2 } },
       'dundun-office': { label: '顶得住', bonus: { gengu: 2 } },
-      'bear-fishing': { label: '钓得稳', bonus: { wuxing: 2 } },
-      'carrot-peach': { label: '果园常客', bonus: { gengu: 1 } },
-      'carrot-peach-flat': { label: '扁平画风', bonus: { shenfa: 1 } },
-      'carrot-apple-red': { label: '红苹果', bonus: { neili: 1 } },
-      'carrot-apple-red-flat': { label: '红苹果·扁平', bonus: { neili: 1 } },
-      'carrot-apple-green': { label: '青苹果', bonus: { wuxing: 1 } },
-      'carrot-apple-green-flat': { label: '青苹果·扁平', bonus: { wuxing: 1 } },
-      'carrot-radish': { label: '缨子重', bonus: { gengu: 1 } },
-      'carrot-radish-flat': { label: '圆缨·扁平', bonus: { shenfa: 1 } }
+      'bear': { label: '钓得稳', bonus: { wuxing: 2 } },
+      'peach-plush': { label: '果园常客', bonus: { gengu: 1 } },
+      'peach-flat': { label: '扁平画风', bonus: { shenfa: 1 } },
+      'apple-red': { label: '红苹果', bonus: { neili: 1 } },
+      'apple-red-flat': { label: '红苹果·扁平', bonus: { neili: 1 } },
+      'apple-green': { label: '青苹果', bonus: { wuxing: 1 } },
+      'apple-green-flat': { label: '青苹果·扁平', bonus: { wuxing: 1 } },
+      'radish': { label: '缨子重', bonus: { gengu: 1 } },
+      'radish-flat': { label: '圆缨·扁平', bonus: { shenfa: 1 } },
+      // v2 扩展包：特殊款
+      'headphone': { label: '单曲循环', bonus: { neili: 2 } },
+      'resources': { label: '安全第一', bonus: { gengu: 2 } },
+      'strawhat-orange-plush': { label: '帽檐遮光', bonus: { neili: 1 } },
+      'strawhat-orange-flat': { label: '草帽·扁平', bonus: { shenfa: 1 } },
+      'rabbit-plush': { label: '弹跳力', bonus: { shenfa: 2 } },
+      'rabbit-flat': { label: '白兔·扁平', bonus: { shenfa: 1 } },
+      'bee-plush': { label: '嗡嗡不停', bonus: { shenfa: 2 } },
+      'bee-flat': { label: '蜜蜂·扁平', bonus: { wuxing: 1 } },
+      // v2 扩展包：mojo 果园家族
+      'mojo-banana-plush': { label: '香蕉皮', bonus: { shenfa: 1 } },
+      'mojo-banana-flat': { label: '香蕉·扁平', bonus: { shenfa: 1 } },
+      'mojo-cherries-plush': { label: '成双成对', bonus: { gengu: 1 } },
+      'mojo-cherries-flat': { label: '樱桃·扁平', bonus: { gengu: 1 } },
+      'mojo-peapod-plush': { label: '三颗豆', bonus: { gengu: 1 } },
+      'mojo-peapod-flat': { label: '豌豆·扁平', bonus: { wuxing: 1 } },
+      'mojo-pumpkin-plush': { label: '沉甸甸', bonus: { gengu: 2 } },
+      'mojo-pumpkin-flat': { label: '南瓜·扁平', bonus: { gengu: 1 } },
+      'mojo-tomato-plush': { label: '红彤彤', bonus: { neili: 1 } },
+      'mojo-tomato-flat': { label: '番茄·扁平', bonus: { neili: 1 } },
+      'mojo-shrimp-plush': { label: '卷尾巴', bonus: { shenfa: 1 } },
+      'mojo-shrimp-flat': { label: '炸虾·扁平', bonus: { shenfa: 1 } },
+      'mojo-rose-plush': { label: '带刺的', bonus: { wuxing: 1 } },
+      'mojo-rose-flat': { label: '玫瑰·扁平', bonus: { wuxing: 1 } },
+      'mojo-drink-plush': { label: '补水回蓝', bonus: { neili: 1 } },
+      'mojo-drink-flat': { label: '饮料·扁平', bonus: { neili: 1 } },
+      'mojo-pomelo-plush': { label: '皮厚抗冻', bonus: { gengu: 1 } },
+      'mojo-pomelo-flat': { label: '柚子·扁平', bonus: { gengu: 1 } }
     },
     default: { label: '陪着练', bonus: { gengu: 1 } }
   };
 
   // 打卡一次给多少修炼时辰：动脑的和动身的都给得多一点。
   var TASK_HOURS = {
-    diet: 1, exercise: 3, accounting: 1, vocabulary: 3, amazon: 2, xiaohongshu: 2
+    diet: 1, exercise: 3, accounting: 1, vocabulary: 3, amazon: 2, xiaohongshu: 2,
+    todo: 2, planner: 2, body: 1, growth: 2, media: 2
   };
 
   // 装备：通用款按品阶分凡/精/珍三档，门派款只做精品一档，加成偏向本门身份属性。

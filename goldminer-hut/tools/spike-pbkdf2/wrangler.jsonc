@@ -1,0 +1,6 @@
+{
+  // spike 专用最小配置：只为量 PBKDF2 预算，不参与发布。
+  "name": "spike-pbkdf2",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-01"
+}

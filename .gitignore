@@ -17,3 +17,17 @@ __pycache__/
 # 编辑器 / 系统
 .DS_Store
 nul
+.npm-cache/
+.tmp/
+goldminer-hut/node_modules/
+goldminer-hut/.wrangler/
+goldminer-hut/dist/
+.acl-recovery/
+
+# 本地备份与 QA 截图（git 本身就是备份，截图不进库）
+_backup-pet-*/
+_backup-pre-*.html
+_shot*.png
+_sidebar*.png
+_after-*.png
+.superpowers/

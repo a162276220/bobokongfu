@@ -556,12 +556,12 @@ function total(stats) { return STAT_KEYS.reduce((sum, k) => sum + stats[k], 0); 
 const START_TOTAL = total(blankState().jianghu.stats);
 state = blankState();
 state.pets = [
-  { name: '甲', petId: 'huhu-carrot-3leaf' },
-  { name: '乙', petId: 'huhu-carrot-3leaf' },   // 同一只被动，不该叠加
+  { name: '甲', petId: '3leaf' },
+  { name: '乙', petId: '3leaf' },               // 同一只被动，不该叠加
   { name: '丙', petId: 'dundun-office' },
   { name: '丁', petId: null },                  // 没挂图集的不算伙伴
 ];
-const leaf = W.PET_BONUSES.byId['huhu-carrot-3leaf'].bonus;
+const leaf = W.PET_BONUSES.byId['3leaf'].bonus;
 const dun = W.PET_BONUSES.byId['dundun-office'].bonus;
 const wantSum = Object.values(leaf).reduce((a, b) => a + b, 0)
   + Object.values(dun).reduce((a, b) => a + b, 0);

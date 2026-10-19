@@ -1,0 +1,15 @@
+{
+  "name": "goldminer-hut",
+  "private": true,
+  "type": "module",
+  "description": "淘金矿工小屋的云端数据面：Worker + D1。dist 仍由 tools/build-dist.mjs 拷贝产出，这里只是部署与本地开发工具。",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migrate:local": "wrangler d1 migrations apply goldminer --local",
+    "migrate:remote": "wrangler d1 migrations apply goldminer --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

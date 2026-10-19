@@ -965,6 +965,70 @@ const appCss = fs.readFileSync(HTML, 'utf8');
 check('I5 HTML 样式已定义 gear-* 观感类（slot/tier/summary/worn）',
   ['.gear-slot-icon', '.gear-tier', '.gear-summary', '.gear-worn'].every((c) => appCss.includes(c)),
   ['.gear-slot-icon', '.gear-tier', '.gear-summary', '.gear-worn'].filter((c) => !appCss.includes(c)));
+
+/* ---------- J. 坏档自愈：装备等级与标量数值的 NaN 路径 ---------- */
+// 旧档可能写成 { level: 3 } 而缺 lvl，或把 lvl/taels 存成 null/NaN。
+// 不修的话 upgradeCost 会算出 NaN：既绕过银两校验，又把 taels 写成 null，之后永久「银两不足」。
+resetGame();
+J().taels = 1000;
+J().hours = 5;
+J().gear = { owned: { weapon_general_t0: { level: 3 } }, equipped: gEquip() };
+let sanErr = null;
+try { Jianghu.sanitize(); } catch (e) { sanErr = e; }
+check('J1 结构坏掉的装备条目被自愈且不抛异常', !sanErr, sanErr && sanErr.message);
+check('J2 缺 lvl 的旧条目补成 0 级', !!gearOwned().weapon_general_t0 && gearOwned().weapon_general_t0.lvl === 0,
+  gearOwned().weapon_general_t0);
+Jianghu.upgradeGear('weapon_general_t0');
+const jGw0 = WUXIA.GEAR.filter((g) => g.id === 'weapon_general_t0')[0];
+check('J3 自愈后强化扣的是有限银两、等级 +1',
+  Number.isFinite(J().taels) && J().taels === 1000 - Jianghu.upgradeCost(jGw0, 0) && gearOwned().weapon_general_t0.lvl === 1,
+  { taels: J().taels, lvl: gearOwned().weapon_general_t0.lvl });
+check('J4 存档序列化不产生 taels:null', !JSON.stringify(J()).includes('"taels":null'));
+
+// 已经坏掉的标量（null / NaN）一律归零，小数等级向下取整
+resetGame();
+J().taels = null; J().exp = NaN; J().hoursTotal = null;
+J().gear = { owned: { weapon_general_t0: { lvl: null }, armor_general_t0: { lvl: 2.7 } }, equipped: gEquip() };
+try { Jianghu.sanitize(); } catch (e) { sanErr = e; }
+check('J5 标量 null/NaN 归零', J().taels === 0 && J().exp === 0 && J().hoursTotal === 0,
+  { taels: J().taels, exp: J().exp, hoursTotal: J().hoursTotal });
+check('J6 lvl=null 归零、小数等级向下取整',
+  gearOwned().weapon_general_t0.lvl === 0 && gearOwned().armor_general_t0.lvl === 2,
+  { a: gearOwned().weapon_general_t0, b: gearOwned().armor_general_t0 });
+
+// 正常档不能被误改
+resetGame();
+J().taels = 333; J().exp = 87;
+J().gear = { owned: { weapon_general_t0: { lvl: 1 } }, equipped: gEquip({ weapon: 'weapon_general_t0' }) };
+const changedNormal = Jianghu.sanitize();
+check('J7 正常档 sanitize 不报改动、数值原样',
+  changedNormal === false && J().taels === 333 && J().exp === 87 && gearOwned().weapon_general_t0.lvl === 1,
+  { changedNormal, taels: J().taels, lvl: gearOwned().weapon_general_t0.lvl });
+
+/* ---------- K. 宠物名转义与同页滚动保持 ---------- */
+// 宠物名是自由输入、还会同步到云端，拼进 innerHTML 前必须转义。
+const XSS = '<img src=x onerror="window.__xss=1">';
+check('K1 esc 转义尖括号与引号',
+  typeof sandbox.esc === 'function' && sandbox.esc(XSS).indexOf('<') < 0
+  && sandbox.esc('a"b\'c&d').includes('&quot;') && sandbox.esc('a"b\'c&d').includes('&#39;'),
+  typeof sandbox.esc === 'function' ? sandbox.esc(XSS) : 'main script 未暴露 esc');
+if (typeof sandbox.renderPetCard === 'function') {
+  const card = sandbox.renderPetCard({ id: 'p1', name: XSS, type: '胡胡', hunger: 1, mood: 1, health: 1, level: 1 });
+  check('K2 宠物卡里的名字被转义', card.indexOf('<img') < 0, card.slice(0, 120));
+}
+// 重渲染同一页保留滚动位置，换页才归零（mainContent 自身就是滚动容器）。
+const mc = elCache.get('mainContent');
+let navErr = null;
+try {
+  sandbox.navTo('jianghu');
+  mc.scrollTop = 500;
+  sandbox.navTo('jianghu');
+  check('K3 同页重渲染保留 scrollTop', mc.scrollTop === 500, mc.scrollTop);
+  sandbox.navTo('dashboard');
+  check('K4 换页 scrollTop 归零', mc.scrollTop === 0, mc.scrollTop);
+} catch (e) { navErr = e; }
+check('K5 navTo 滚动逻辑不抛异常', !navErr, navErr && navErr.message);
+
 console.log(lines.join('\n'));
 console.log('VERDICT ' + (failures === 0 ? 'ALL-PASS' : 'HAS-FAILURES (' + failures + ')'));
 process.exitCode = failures === 0 ? 0 : 1;

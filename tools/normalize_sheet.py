@@ -22,8 +22,8 @@ A row that was shrunk because its bounding box had to hold a whole jump arc, or
 hold a desk and chair next to the character, is a scale error inside the artwork
 itself; that cannot be fixed by reordering and is only reported here.
 
-    python tools/normalize_sheet.py pet/bear-fishing ...
-    python tools/normalize_sheet.py --dry-run pet/bear-fishing
+    python tools/normalize_sheet.py pet/bear ...
+    python tools/normalize_sheet.py --dry-run pet/bear
 """
 
 from __future__ import annotations

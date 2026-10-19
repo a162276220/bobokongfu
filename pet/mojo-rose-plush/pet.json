@@ -1,0 +1,186 @@
+{
+  "petManifestVersion": 2,
+  "id": "mojo-rose-plush",
+  "displayName": "玫瑰版·毛绒",
+  "description": "玫瑰版·毛绒胡萝卜桌宠，待机时会自己变脸，会在 Codex 中自动漫游。任务失败会举叉叉牌，复查时举对勾牌。",
+  "license": "Project-local assets",
+  "renderer": "frames2d",
+  "frames2d": {
+    "dir": "thumb",
+    "defaultFrameMs": 130,
+    "tracks": {
+      "idle": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp",
+          "frame_04.webp",
+          "frame_05.webp",
+          "frame_06.webp",
+          "frame_07.webp"
+        ],
+        "frameMs": [
+          900,
+          900,
+          900,
+          1100,
+          900,
+          900,
+          900,
+          1100
+        ],
+        "loop": true
+      },
+      "waving": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp"
+        ],
+        "frameMs": [
+          600,
+          1200,
+          600,
+          1200
+        ],
+        "loop": true
+      },
+      "running-right": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp"
+        ],
+        "frameMs": [
+          130,
+          130,
+          130,
+          130
+        ],
+        "loop": true
+      },
+      "running-left": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp"
+        ],
+        "frameMs": [
+          130,
+          130,
+          130,
+          130
+        ],
+        "loop": true
+      },
+      "running": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp"
+        ],
+        "frameMs": [
+          130,
+          130,
+          130,
+          130
+        ],
+        "loop": true
+      },
+      "jumping": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp",
+          "frame_04.webp"
+        ],
+        "frameMs": [
+          150,
+          150,
+          150,
+          180,
+          220
+        ],
+        "loop": true
+      },
+      "waiting": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp",
+          "frame_04.webp",
+          "frame_05.webp"
+        ],
+        "frameMs": [
+          180,
+          180,
+          180,
+          180,
+          180,
+          220
+        ],
+        "loop": true
+      },
+      "failed": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp"
+        ],
+        "frameMs": [
+          150,
+          150,
+          180,
+          220
+        ],
+        "loop": true
+      },
+      "review": {
+        "frames": [
+          "frame_00.webp",
+          "frame_01.webp",
+          "frame_02.webp",
+          "frame_03.webp"
+        ],
+        "frameMs": [
+          150,
+          150,
+          180,
+          220
+        ],
+        "loop": true
+      }
+    },
+    "phases": {
+      "idle": "idle",
+      "waiting": "waiting",
+      "thinking": "running",
+      "tool": "running-right",
+      "review": "review",
+      "done": "jumping",
+      "failed": "failed"
+    }
+  },
+  "gameplay": {
+    "roam": {
+      "state": "running-right",
+      "intervalMs": 12000,
+      "probability": 0.85,
+      "distanceMin": 80,
+      "distanceMax": 260,
+      "speed": 55,
+      "directions": [
+        "left",
+        "right"
+      ]
+    }
+  }
+}

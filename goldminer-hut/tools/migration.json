@@ -1,0 +1,149 @@
+{
+  "displayName": "创建工作台 13 张业务表",
+  "sql": "CREATE TABLE app.ast (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  coins text,\n  total_earned text,\n  total_spent text,\n  total_claims text,\n  monthly_earned text,\n  monthly_spent text,\n  today_earned text,\n  today_spent text,\n  last_active text,\n  created_on text,\n  cabin_theme text,\n  daily_reset boolean,\n  notifications boolean,\n  pet_remind boolean,\n  today_words text,\n  today_words_date text,\n  today_video_idx text,\n  today_video_date text\n);\nCREATE INDEX ast_owner_rid_idx ON app.ast (owner, rid);\nCREATE TABLE app.meal (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  log_date text,\n  meal text,\n  food text,\n  calories text,\n  note text,\n  image text\n);\nCREATE INDEX meal_owner_rid_idx ON app.meal (owner, rid);\nCREATE TABLE app.wk (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  log_date text,\n  kind text,\n  minutes text,\n  weight text,\n  feeling text,\n  note text,\n  burned text\n);\nCREATE INDEX wk_owner_rid_idx ON app.wk (owner, rid);\nCREATE TABLE app.acc (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  log_date text,\n  kind text,\n  category text,\n  amount text,\n  note text,\n  receipt text\n);\nCREATE INDEX acc_owner_rid_idx ON app.acc (owner, rid);\nCREATE TABLE app.voc (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  word text,\n  phonetic text,\n  meaning text,\n  memorized boolean,\n  added_date text\n);\nCREATE INDEX voc_owner_rid_idx ON app.voc (owner, rid);\nCREATE TABLE app.amz (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  log_date text,\n  video_title text,\n  video_topic text,\n  key_points text,\n  insights text,\n  actions text\n);\nCREATE INDEX amz_owner_rid_idx ON app.amz (owner, rid);\nCREATE TABLE app.xhs (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  log_date text,\n  title text,\n  idea text,\n  audience text,\n  form text,\n  outline text,\n  script text,\n  storyboard text,\n  tags text\n);\nCREATE INDEX xhs_owner_rid_idx ON app.xhs (owner, rid);\nCREATE TABLE app.inv (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  item_id text,\n  kind text,\n  name text,\n  icon text,\n  description text,\n  qty text,\n  effect text,\n  slot_size text,\n  price text\n);\nCREATE INDEX inv_owner_rid_idx ON app.inv (owner, rid);\nCREATE TABLE app.pet (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  pet_id text,\n  shop_id text,\n  name text,\n  kind text,\n  icon text,\n  hunger text,\n  mood text,\n  health text,\n  level text,\n  exp text,\n  adopted_at text,\n  last_update text,\n  last_interact text\n);\nCREATE INDEX pet_owner_rid_idx ON app.pet (owner, rid);\nCREATE TABLE app.cab (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  slot text,\n  item_id text,\n  name text,\n  icon text\n);\nCREATE INDEX cab_owner_rid_idx ON app.cab (owner, rid);\nCREATE TABLE app.ach (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  achievement_id text\n);\nCREATE INDEX ach_owner_rid_idx ON app.ach (owner, rid);\nCREATE TABLE app.chk (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  log_date text,\n  ts text,\n  task_key text,\n  task_name text,\n  coins text\n);\nCREATE INDEX chk_owner_rid_idx ON app.chk (owner, rid);\nCREATE TABLE app.rpt (\n  id uuid PRIMARY KEY,\n  owner text NOT NULL,\n  rid text NOT NULL UNIQUE,\n  updated_at timestamptz NOT NULL,\n  kind text,\n  log_date text,\n  payload text\n);\nCREATE INDEX rpt_owner_rid_idx ON app.rpt (owner, rid);",
+  "accessPolicies": [
+    {
+      "table": "ast",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "meal",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "wk",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "acc",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "voc",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "amz",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "xhs",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "inv",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "pet",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "cab",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "ach",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "chk",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    },
+    {
+      "table": "rpt",
+      "principal": "anonymous",
+      "actions": [
+        "select",
+        "insert",
+        "update",
+        "delete"
+      ],
+      "template": "public"
+    }
+  ]
+}

@@ -28,12 +28,14 @@
     return 0;
   }
   function realm() { return WUXIA.REALMS[realmIndex()]; }
-  function sect() {
-    var id = state().sect;
-    return id ? WUXIA.SECTS.filter(function (s) { return s.id === id; })[0] : null;
+  function sectById(id) {
+    if (!id || !global.WUXIA) return null;
+    return WUXIA.SECTS.filter(function (s) { return s.id === id; })[0] || null;
   }
+  function sect() { return sectById(state().sect); }
   function sectName(id) {
-    return (WUXIA.SECTS.filter(function (s) { return s.id === id; })[0] || {}).name || id;
+    var s = sectById(id);
+    return s ? s.name : id;
   }
   function skillLevel(id) { return state().skills[id] || 0; }
   function bestSkill(kind) {
@@ -110,8 +112,7 @@
       var item = gearItem(id);
       if (!item) return;
       Object.keys(item.bonus).forEach(function (k) { out[k] += item.bonus[k]; });
-      var entry = (gear.owned || {})[id];
-      if (entry && typeof entry.lvl === 'number') out[mainStat(item.bonus)] += entry.lvl;
+      out[mainStat(item.bonus)] += ownedLevel(gear, id);
     });
     return out;
   }
@@ -254,6 +255,16 @@
     function knownSect(id) { return WUXIA.SECTS.some(function (s) { return s.id === id; }); }
     function plainObject(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
 
+    // 标量数值只可能是被算坏成 null/NaN 的旧档（见装备强化的 NaN 路径），一律归零兜底，防止永久锁死。
+    var numFixed = false;
+    ['taels', 'exp', 'hours', 'hoursTotal', 'wins', 'losses'].forEach(function (k) {
+      var v = j[k];
+      if (typeof v === 'number' && isFinite(v)) return;
+      j[k] = 0;
+      numFixed = true;
+    });
+    if (numFixed) { log('账上几笔数目记糊了，先按零重记。'); changed = true; }
+
     if (j.duel && !knownFoe(j.duel.foe)) {
       j.duel = null;
       j.pending = null;
@@ -287,7 +298,12 @@
       if (gear.equipped[slot] === undefined) { gear.equipped[slot] = null; structFixed = true; }
     });
     Object.keys(gear.owned).forEach(function (id) {
-      if (!plainObject(gear.owned[id])) { gear.owned[id] = { lvl: 0 }; structFixed = true; }
+      var entry = gear.owned[id];
+      if (!plainObject(entry)) { entry = gear.owned[id] = { lvl: 0 }; structFixed = true; }
+      // 强化等级必须是有限的非负整数。旧档若缺字段或存了 null/NaN，费用会算成 NaN，
+      // 既绕过银两校验，又把 taels 写成 null，之后永远提示「银两不足」。
+      var lvl = entry.lvl, healed = (typeof lvl === 'number' && isFinite(lvl) && lvl > 0) ? Math.floor(lvl) : 0;
+      if (healed !== lvl) { entry.lvl = healed; structFixed = true; }
     });
     if (gear !== j.gear) j.gear = gear;
     if (structFixed) { log('行囊里的旧账已经记乱，索性重新记过一本。'); changed = true; }
@@ -761,16 +777,22 @@
   var SLOT_NAMES = { weapon: '武器', armor: '护甲', boots: '靴子', charm: '佩饰' };
   var TIER_NAMES = { 0: '凡品', 1: '精良', 2: '珍品' };
   var SLOT_ICONS = { weapon: '⚔️', armor: '🛡️', boots: '🥾', charm: '📿' };
-  var STAT_LABELS = { neili: '内力', gengu: '根骨', shenfa: '身法', wuxing: '悟性' };
+  // 属性中文名统一取内容表 WUXIA.STATS，避免这里再抄一份、改一边漏一边。
+  function statLabel(k) { return (global.WUXIA && WUXIA.STATS && WUXIA.STATS[k]) || k; }
   function tierChip(it) {
     return '<span class="gear-tier tier-' + it.tier + '">' + (TIER_NAMES[it.tier] || '?') + '</span>';
   }
   function bonusText(bon) {
     var parts = [];
     ['neili', 'gengu', 'shenfa', 'wuxing'].forEach(function (k) {
-      if (bon && bon[k]) parts.push((STAT_LABELS[k] || k) + '+' + bon[k]);
+      if (bon && bon[k]) parts.push(statLabel(k) + '+' + bon[k]);
     });
     return parts.join('·');
+  }
+  // 行囊条目的强化等级：结构坏掉时按 0 级显示（真正的修正见 sanitize）。
+  function ownedLevel(gear, id) {
+    var entry = (gear && gear.owned || {})[id];
+    return (entry && typeof entry.lvl === 'number') ? entry.lvl : 0;
   }
 
   function gearHtml() {
@@ -784,8 +806,7 @@
           + '<span class="gear-slot-name">' + SLOT_NAMES[slot] + '</span>'
           + '<span style="opacity:.5;">（未穿戴）</span></div>';
       }
-      var entry = gear.owned[id] || { lvl: 0 };
-      var lvl = typeof entry.lvl === 'number' ? entry.lvl : 0;
+      var lvl = ownedLevel(gear, id);
       return '<div class="gear-row"><span class="gear-slot-icon">' + SLOT_ICONS[slot] + '</span>'
         + '<span class="gear-slot-name">' + SLOT_NAMES[slot] + '</span>'
         + '<span class="gear-name">' + esc(item.name) + ' <span class="gear-lvl">+' + lvl + '</span></span>'
@@ -810,8 +831,7 @@
     var rows = ids.map(function (id) {
       var item = gearItem(id);
       if (!item) return '';
-      var entry = gear.owned[id] || { lvl: 0 };
-      var lvl = typeof entry.lvl === 'number' ? entry.lvl : 0;
+      var lvl = ownedLevel(gear, id);
       var worn = gear.equipped[item.slot] === id;
       var cap = gearTierCap(item), atCap = lvl >= cap, cost = upgradeCost(item, lvl);
       var canUp = !atCap && j.taels >= cost;

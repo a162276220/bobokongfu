@@ -1,0 +1,23 @@
+{
+  // 站点与 API 同一个 Worker：/api/* 先到 Worker，其余交给静态资源（dist）。
+  "name": "workbench",
+  "main": "functions/worker.mjs",
+  "compatibility_date": "2026-10-01",
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "goldminer",
+      // 跑一次 `npx wrangler d1 create goldminer`，把它输出里的 database_id 填到这里。
+      "database_id": "092e19b7-5b82-4571-8b5d-77ab9ad0a996"
+    }
+  ],
+
+  "observability": { "enabled": true }
+}

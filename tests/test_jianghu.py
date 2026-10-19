@@ -136,12 +136,28 @@ def test_checkin_buys_cultivation_time(html):
 
 
 def test_the_task_hours_table_matches_the_real_mine_tracks(html):
+    """给时辰的模块必须真的存在，且真的有人给它发时辰。
+
+    TASK_HOURS 不等于 TASK_CONFIG：TASK_CONFIG 只列「每日金币领取」那六个台账，
+    而四象限待办/计划月历/身体台账/成长目标/新媒体工作台走的是 awardDailyHours
+    直接发时辰、不参与金币结算。所以两边不能死绑相等，改为双向校验：
+    表里的每个 key 都要有发放入口，每个发放入口也都要在表里有值。
+
+    发放入口有两条链，都要认：
+      - 六个金币台账：claimTaskCoins 里 Jianghu.earnHours(taskKey, config.name)
+      - 五个新模块  ：awardDailyHours('key', '名字')
+    """
     tasks = set(re.findall(r'(\w+):\s*\{ name:', html.split('const TASK_CONFIG')[1].split('};')[0]))
     hours = set(re.findall(r'(\w+):\s*\d+', CONTENT.read_text(encoding='utf-8')
                            .split('var TASK_HOURS')[1].split('};')[0]))
+    awarded = set(re.findall(r"awardDailyHours\(\s*'(\w+)'", html))
     assert tasks, '台账配置读不出来'
-    assert hours <= tasks, sorted(hours - tasks)
-    assert tasks <= hours, sorted(tasks - hours)
+    assert hours, 'TASK_HOURS 读不出来'
+    assert awarded, 'awardDailyHours 调用点读不出来'
+    # 原六个台账经 claimTaskCoins 发放，它们本身就是发放入口
+    assert hours <= awarded | tasks, sorted(hours - (awarded | tasks))  # 表里有值却没人发
+    assert awarded <= hours, sorted(awarded - hours)                    # 有人发却在表里没值
+    assert tasks <= hours, sorted(tasks - hours)                        # 金币台账也得能换时辰
 
 
 def test_the_default_state_covers_every_field_the_engine_touches(html):
