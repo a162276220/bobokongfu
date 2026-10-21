@@ -10,6 +10,7 @@
    调试路由：/__debug/store?table=ast、/__debug/reset、/__debug/schema。 */
 
 import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
 import { mkdir, readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -108,4 +109,15 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log('dev server: http://127.0.0.1:' + PORT + '/  (static dist + /api/* → 真 Worker)');
   console.log('库: ' + DB_FILE);
   console.log('debug: /__debug/store?table=ast  /__debug/reset  /__debug/schema');
+
+  if (process.env.OPEN_BROWSER) {
+    const url = 'http://127.0.0.1:' + PORT + '/index.html';
+    const opener = process.platform === 'win32'
+      ? spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' })
+      : process.platform === 'darwin'
+        ? spawn('open', [url], { detached: true, stdio: 'ignore' })
+        : spawn('xdg-open', [url], { detached: true, stdio: 'ignore' });
+    opener.on('error', () => console.log('浏览器自动打开失败，请手动访问 ' + url));
+    opener.unref();
+  }
 });
