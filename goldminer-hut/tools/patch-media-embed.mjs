@@ -11,7 +11,8 @@
    5. 旧版媒体页的本地模板与真实模型提示词去主题绑定（原模板写死少儿选课场景），把关中心预览渲染 Markdown；
    6. 旧版媒体页的 AI 引擎配置不再被版本迁移清空（migrateState 保留 media），部分填写时明确提示缺什么；
    7. 旧版媒体页的灵感候选区支持按来源筛选（全部/微博热搜/小红书热榜…），「全部采纳/忽略」只作用于当前筛选；状态文案更新为四来源；
-   8. 任何锚点找不到或重复 → 失败退出，不发布「看着正常、其实没嵌进去」的站点。
+   8. 旧版媒体页 AI 引擎：打回重写同样走真实模型；直连失败不再静默（原因写进任务/成稿）；新增「测试连接」按钮；AI 未完成时阻止合成成稿，避免把模板稿当成品；
+   9. 任何锚点找不到或重复 → 失败退出，不发布「看着正常、其实没嵌进去」的站点。
 */
 
 const MUST_HAVE = [
@@ -41,6 +42,12 @@ const MUST_HAVE = [
   "'本地模式：定时任务每天 17:00 抓 B站/百度/微博/小红书热搜。'",
   "'<span class=\"spk-plats\">'",
   '.utp-act.on {',
+  "const done = function (txt, reason) { if (cb) cb(txt, reason); };",
+  "tt.error = 'AI 直连失败：' + (reason || '未知原因')",
+  "dd.aiNote = 'AI 直连失败：' + (reason || '未知原因')",
+  'onclick="mfTestAI()"',
+  'function mfTestAI() {',
+  '真实模型还在写，等覆盖完成再点「合成成稿」',
 ];
 
 const PATCHES = [
@@ -470,6 +477,195 @@ const PATCHES = [
     new: `    .utp-act { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--bg-card); color: var(--text-warm); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all .15s ease; }
     .utp-act.on { background: var(--gold-bright); color: #fff; border-color: var(--gold-bright); }
     .spk-plats { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-right: 6px; }`,
+  },
+  {
+    name: '33. AI refine 失败回传原因（不再静默）',
+    old: `    refine: function (line, title, style, cb) {
+      const c = this.cfg();
+      if (!c.apiBase || !c.apiKey) return;
+      try {
+        fetch(String(c.apiBase).replace(/\\/+$/, '') + '/chat/completions', {`,
+    new: `    refine: function (line, title, style, cb) {
+      const c = this.cfg();
+      if (!c.apiBase || !c.apiKey) return;
+      const done = function (txt, reason) { if (cb) cb(txt, reason); };
+      try {
+        fetch(String(c.apiBase).replace(/\\/+$/, '') + '/chat/completions', {`,
+  },
+  {
+    name: '34. AI refine 的失败分支把原因传回调用方',
+    old: `        }).then(function (j) {
+          const t = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+          if (!t) return;
+          /* 短图文要求 JSON：模型偶发返回纯文本时包回标准结构，预览/导出不破 */
+          let out = t;
+          if (line === 'short_form') {
+            try { JSON.parse(t); } catch (e) {
+              out = JSON.stringify({ cover_main: String(title || '').slice(0, 12), cover_sub: '3 条判断标准 · 建议收藏', body: t });
+            }
+          }
+          cb(out);
+        }).catch(function () { /* 直连失败：保留本地模板结果 */ });
+      } catch (e) { /* 保持本地模板结果 */ }
+    },
+  };`,
+    new: `        }).then(function (j) {
+          const t = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+          if (!t) { done('', '响应里没有文案'); return; }
+          /* 短图文要求 JSON：模型偶发返回纯文本时包回标准结构，预览/导出不破 */
+          let out = t;
+          if (line === 'short_form') {
+            try { JSON.parse(t); } catch (e) {
+              out = JSON.stringify({ cover_main: String(title || '').slice(0, 12), cover_sub: '3 条判断标准 · 建议收藏', body: t });
+            }
+          }
+          done(out);
+        }).catch(function (e) { done('', (e && e.message) || '网络错误'); });
+      } catch (e) { done('', (e && e.message) || '网络错误'); }
+    },
+  };`,
+  },
+  {
+    name: '35. 写稿步 AI 失败写进任务、成功弹提示',
+    old: `    if (t.step === 1) {
+      /* 写稿：先本地模板同步出稿，保证断网也有内容 */
+      t.body = MediaMock.gen(t.line, t.title, t.style);
+      t.text = 'mock';
+      /* 配了真实模型就异步覆盖（失败静默） */
+      MediaAI.refine(t.line, t.title, t.style, function (txt) {
+        const ss = getState();
+        const tt = mfTasks(ss).find(function (x) { return x.id === taskId; });
+        if (!tt || (tt.step || 0) < 1) return;
+        tt.body = txt; tt.text = 'real';
+        const cc = mfContents(ss).filter(function (x) { return x.taskId === taskId; })[0];
+        if (cc) cc.body = txt;
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+      });
+    }`,
+    new: `    if (t.step === 1) {
+      /* 写稿：先本地模板同步出稿，保证断网也有内容 */
+      t.body = MediaMock.gen(t.line, t.title, t.style);
+      t.text = 'mock';
+      if (MediaAI.active()) {
+        /* 配了真实模型就异步覆盖；失败把原因写进任务，让用户知道为什么还是模板 */
+        t._aiPending = true;
+        MediaAI.refine(t.line, t.title, t.style, function (txt, reason) {
+          const ss = getState();
+          const tt = mfTasks(ss).find(function (x) { return x.id === taskId; });
+          if (!tt || (tt.step || 0) < 1) return;
+          tt._aiPending = false;
+          if (txt) {
+            tt.body = txt; tt.text = 'real';
+            const cc = mfContents(ss).filter(function (x) { return x.taskId === taskId; })[0];
+            if (cc) cc.body = txt;
+            saveState();
+            if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+            showToast('✓ 真实模型文案已覆盖', 'success');
+          } else {
+            tt.error = 'AI 直连失败：' + (reason || '未知原因') + '，已保留本地模板';
+            saveState();
+            if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+          }
+        });
+      }
+    }`,
+  },
+  {
+    name: '36. AI 未完成时阻止合成成稿',
+    old: `    let ipNote = null;  /* 出演的形象（toast 用，须在块外可见） */
+    if (t.step === 3) {`,
+    new: `    if (t.step === 3 && MediaAI.active() && t.text !== 'real' && t._aiPending) {
+      t.step = 2;
+      saveState(); refreshPage('media');
+      showToast('⏳ 真实模型还在写，等覆盖完成再点「合成成稿」', 'info');
+      return;
+    }
+    let ipNote = null;  /* 出演的形象（toast 用，须在块外可见） */
+    if (t.step === 3) {`,
+  },
+  {
+    name: '37. 打回重写同样走真实模型，失败写 aiNote',
+    old: `      body: MediaMock.gen(c.line, c.title, '按意见修改：' + n),
+      tags: c.tags || [], status: 'pending_review', version: (c.version || 1) + 1,
+      reviewNote: n, supersedes: c.id, supersedesBy: null, publishedAt: null,
+      createdAt: new Date().toISOString(), demo: false,
+    };
+    c.supersedesBy = nc.id;
+    s.media.contents = mfContents(s).concat([nc]);
+    saveState();
+    if (typeof closeModal === 'function') closeModal();
+    refreshPage('media');
+    showToast('已打回，新版 v' + nc.version + ' 按意见重写好了', 'success');
+  }`,
+    new: `      body: MediaMock.gen(c.line, c.title, '按意见修改：' + n),
+      tags: c.tags || [], status: 'pending_review', version: (c.version || 1) + 1,
+      reviewNote: n, supersedes: c.id, supersedesBy: null, publishedAt: null,
+      createdAt: new Date().toISOString(), demo: false, aiNote: '',
+    };
+    c.supersedesBy = nc.id;
+    s.media.contents = mfContents(s).concat([nc]);
+    saveState();
+    if (typeof closeModal === 'function') closeModal();
+    refreshPage('media');
+    showToast(MediaAI.active()
+      ? '已打回，新版 v' + nc.version + ' 已生成，真实模型覆盖中…'
+      : '已打回，新版 v' + nc.version + ' 按意见重写好了', 'success');
+    if (MediaAI.active()) {
+      MediaAI.refine(c.line, c.title, '按意见修改：' + n, function (txt, reason) {
+        const ss = getState();
+        const dd = mfContents(ss).find(function (x) { return x.id === nc.id; });
+        if (!dd) return;
+        if (txt) { dd.body = txt; dd.aiNote = ''; }
+        else { dd.aiNote = 'AI 直连失败：' + (reason || '未知原因') + '，当前为本地模板稿'; }
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+      });
+    }
+  }`,
+  },
+  {
+    name: '38. 把关卡片显示 AI 失败提示',
+    old: `        mfPreviewHtml(c) +
+        (c.reviewNote ? '<div class="tk-meta" style="margin-bottom:8px">📝 本版依据意见：' + utpEsc(c.reviewNote) + '</div>' : '') +`,
+    new: `        mfPreviewHtml(c) +
+        (c.aiNote ? '<div class="tk-meta" style="margin-bottom:8px;color:var(--gold-bright)">⚠️ ' + utpEsc(c.aiNote) + '</div>' : '') +
+        (c.reviewNote ? '<div class="tk-meta" style="margin-bottom:8px">📝 本版依据意见：' + utpEsc(c.reviewNote) + '</div>' : '') +`,
+  },
+  {
+    name: '39. AI 引擎配置区加「测试连接」按钮',
+    old: `      '<div class="f"><label>&nbsp;</label><button class="utp-act" style="justify-content:center;padding:8px 16px" onclick="mfSaveCfg()">💾 保存</button></div>' +`,
+    new: `      '<div class="f"><label>&nbsp;</label><button class="utp-act" style="justify-content:center;padding:8px 16px" onclick="mfSaveCfg()">💾 保存</button>' +
+      '<button class="utp-act" style="justify-content:center;padding:8px 16px" onclick="mfTestAI()">🔌 测试连接</button></div>' +`,
+  },
+  {
+    name: '40. 新增 mfTestAI 连接测试函数',
+    old: `    saveState(); refreshPage('media');
+    showToast(MediaAI.active() ? '✓ 已保存，写稿将走真实模型' : '已保存（未填完整，继续用本地模板）', 'info');
+  }
+
+  function mpApprove(cid) {`,
+    new: `    saveState(); refreshPage('media');
+    showToast(MediaAI.active() ? '✓ 已保存，写稿将走真实模型' : '已保存（未填完整，继续用本地模板）', 'info');
+  }
+
+  function mfTestAI() {
+    const c = MediaAI.cfg();
+    if (!c.apiBase || !c.apiKey) { showToast('先填 API Base 和 API Key 再测试', 'warning'); return; }
+    const base = String(c.apiBase).replace(/\\/+$/, '');
+    showToast('正在测试连接…', '');
+    fetch(base + '/models', { headers: { Authorization: 'Bearer ' + c.apiKey } })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        showToast('✓ 连接正常，真实模型可用（模型：' + (c.model || 'deepseek-chat') + '）', 'success');
+      })
+      .catch(function (e) {
+        const m = (e && e.message) || '';
+        showToast('连接失败：' + (m && m !== 'Failed to fetch' ? m : '网络错误或浏览器 CORS 拦截'), 'warning');
+      });
+  }
+
+  function mpApprove(cid) {`,
   },
 ];
 
