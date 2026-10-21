@@ -3,14 +3,15 @@
    背景：卜卜小屋的源文件还有另一个写者（phase 系列）会整份重写，不能直接改源文件；
    所以和同步层一样，补丁打在 dist/index.html 上。
 
-   做七件事：
+   做八件事：
    1. 把 shell 的 media 页面从旧版 renderMedia 换成 renderMediaShell（iframe 嵌入 /newmedia?embed=1）；
    2. 进入 media 时给 body 加 nm-embed-page，让主内容区让出全部高度、避免双层滚动；
    3. 主壳看板/周报/月报/计划日历改读 nm_shell_summary_v1（新版每次落盘写的只读摘要）；
    4. 旧版简版媒体页保留为独立导航项 media-classic（「媒体流水线」），数据仍走 state.media；
    5. 旧版媒体页的本地模板与真实模型提示词去主题绑定（原模板写死少儿选课场景），把关中心预览渲染 Markdown；
    6. 旧版媒体页的 AI 引擎配置不再被版本迁移清空（migrateState 保留 media），部分填写时明确提示缺什么；
-   7. 任何锚点找不到或重复 → 失败退出，不发布「看着正常、其实没嵌进去」的站点。
+   7. 旧版媒体页的灵感候选区支持按来源筛选（全部/微博热搜/小红书热榜…），「全部采纳/忽略」只作用于当前筛选；状态文案更新为四来源；
+   8. 任何锚点找不到或重复 → 失败退出，不发布「看着正常、其实没嵌进去」的站点。
 */
 
 const MUST_HAVE = [
@@ -34,6 +35,12 @@ const MUST_HAVE = [
   'newState.media = oldState.media || newState.media;',
   "'已保存 Key · 还差 API Base 才能启用'",
   "MediaAI.cfg().apiKey || MediaAI.cfg().apiBase ? ''",
+  "s.spark.platFilter = s.spark.platFilter || 'all';",
+  'function sparkPlatOf(src) {',
+  'window.sparkPlat = sparkPlat;',
+  "'本地模式：定时任务每天 17:00 抓 B站/百度/微博/小红书热搜。'",
+  "'<span class=\"spk-plats\">'",
+  '.utp-act.on {',
 ];
 
 const PATCHES = [
@@ -308,6 +315,161 @@ const PATCHES = [
     name: '24. 只填了部分字段时不再显示误导性提示',
     old: `      (MediaAI.active() ? '' : '（填 API Key 可切真实大模型，不填也能用）') + '</summary>' +`,
     new: `      (MediaAI.active() || MediaAI.cfg().apiKey || MediaAI.cfg().apiBase ? '' : '（填 API Key 可切真实大模型，不填也能用）') + '</summary>' +`,
+  },
+  {
+    name: '25. 候选区状态加平台筛选位 + 平台提取工具',
+    old: `    s.spark.seen = s.spark.seen || [];
+    return s.spark;
+  }`,
+    new: `    s.spark.seen = s.spark.seen || [];
+    s.spark.platFilter = s.spark.platFilter || 'all';
+    return s.spark;
+  }
+  /* 候选来源的「平台」= 去掉 #排名 的标签，如 微博热搜 #3 → 微博热搜 */
+  function sparkPlatOf(src) {
+    return String(src || '').replace(/\\s*#\\d+\\s*$/, '');
+  }`,
+  },
+  {
+    name: '26. 全部采纳只作用于当前筛选的平台',
+    old: `  function sparkAdoptAll() {
+    const sp = sparkData();
+    if (!sp.candidates.length) { showToast('候选区是空的', 'warning'); return; }
+    const s = getState();
+    s.media = s.media || { items: [], kpi: [] };
+    s.media.items = s.media.items || [];
+    const now = Date.now();
+    sp.candidates.forEach(function (c, i) {`,
+    new: `  function sparkAdoptAll(plat) {
+    const sp = sparkData();
+    const picks = (plat && plat !== 'all')
+      ? sp.candidates.filter(function (c) { return sparkPlatOf(c.src) === plat; })
+      : sp.candidates.slice();
+    if (!picks.length) { showToast('候选区是空的', 'warning'); return; }
+    const s = getState();
+    s.media = s.media || { items: [], kpi: [] };
+    s.media.items = s.media.items || [];
+    const now = Date.now();
+    picks.forEach(function (c, i) {`,
+  },
+  {
+    name: '27. 全部采纳收尾与全部忽略按平台筛选',
+    old: `    const n = sp.candidates.length;
+    sp.candidates = [];
+    saveState();
+    showToast('✅ 已把 ' + n + ' 条候选全部采纳进选题池', 'success');
+    refreshPage('media');
+  }
+  /* 清空候选区（全部忽略） */
+  function sparkClearAll() {
+    const sp = sparkData();
+    const n = sp.candidates.length;
+    sp.candidates.forEach(function (c) { if (!sp.seen.includes(c._id)) sp.seen.push(c._id); });
+    sp.seen = sp.seen.slice(-3000);
+    sp.candidates = [];
+    saveState();
+    refreshPage('media');
+    if (n) showToast('已清空 ' + n + ' 条候选', 'info');
+  }`,
+    new: `    const n = picks.length;
+    sp.candidates = (plat && plat !== 'all')
+      ? sp.candidates.filter(function (c) { return sparkPlatOf(c.src) !== plat; })
+      : [];
+    saveState();
+    showToast('✅ 已把 ' + n + ' 条候选全部采纳进选题池', 'success');
+    refreshPage('media');
+  }
+  /* 清空候选区（全部忽略），同样只作用于当前筛选的平台 */
+  function sparkClearAll(plat) {
+    const sp = sparkData();
+    const picks = (plat && plat !== 'all')
+      ? sp.candidates.filter(function (c) { return sparkPlatOf(c.src) === plat; })
+      : sp.candidates.slice();
+    picks.forEach(function (c) { if (!sp.seen.includes(c._id)) sp.seen.push(c._id); });
+    sp.seen = sp.seen.slice(-3000);
+    sp.candidates = (plat && plat !== 'all')
+      ? sp.candidates.filter(function (c) { return sparkPlatOf(c.src) !== plat; })
+      : [];
+    saveState();
+    refreshPage('media');
+    if (picks.length) showToast('已清空 ' + picks.length + ' 条候选', 'info');
+  }
+  /* 切换平台筛选（再点一次回到全部） */
+  function sparkPlat(plat) {
+    const sp = sparkData();
+    sp.platFilter = (sp.platFilter === plat) ? 'all' : plat;
+    saveState();
+    refreshPage('media');
+  }`,
+  },
+  {
+    name: '28. 候选区暴露 sparkPlat 到全局',
+    old: `  window.sparkAdopt = sparkAdopt;
+  window.sparkIgnore = sparkIgnore;
+  window.sparkAdoptAll = sparkAdoptAll;
+  window.sparkClearAll = sparkClearAll;
+  window.sparkPull = sparkPull;`,
+    new: `  window.sparkAdopt = sparkAdopt;
+  window.sparkIgnore = sparkIgnore;
+  window.sparkAdoptAll = sparkAdoptAll;
+  window.sparkClearAll = sparkClearAll;
+  window.sparkPull = sparkPull;
+  window.sparkPlat = sparkPlat;`,
+  },
+  {
+    name: '29. 候选区渲染按平台筛选并加 chips',
+    old: `    const blanks = sparkBlanks(10);
+    const lastRun = sp.runs.length ? sp.runs[sp.runs.length - 1] : null;
+
+    const rows = cands.slice(0, 40).map(function (c) {`,
+    new: `    const blanks = sparkBlanks(10);
+    const lastRun = sp.runs.length ? sp.runs[sp.runs.length - 1] : null;
+    const plats = [];
+    cands.forEach(function (c) {
+      const p = sparkPlatOf(c.src);
+      if (p && plats.indexOf(p) < 0) plats.push(p);
+    });
+    const plat = (sp.platFilter !== 'all' && plats.indexOf(sp.platFilter) >= 0) ? sp.platFilter : 'all';
+    const vis = plat === 'all' ? cands : cands.filter(function (c) { return sparkPlatOf(c.src) === plat; });
+
+    const rows = vis.slice(0, 40).map(function (c) {`,
+  },
+  {
+    name: '30. 候选区状态文案与筛选 chips、计数按筛选',
+    old: `    const tip = '本地模式：定时任务每天 17:00 抓 B站/百度热搜。' +
+      (blanks.length ? ' 近 10 天有 <b>' + blanks.length + '</b> 天没抓，双击 <code>立即抓取.bat</code> 补一轮。' : ' 近 10 天抓取完整。');`,
+    new: `    const tip = '本地模式：定时任务每天 17:00 抓 B站/百度/微博/小红书热搜。' +
+      (blanks.length ? ' 近 10 天有 <b>' + blanks.length + '</b> 天没抓，双击 <code>立即抓取.bat</code> 补一轮。' : ' 近 10 天抓取完整。');`,
+  },
+  {
+    name: '31. 候选区操作行插入平台 chips',
+    old: `      '<div class="utp-filters">' +
+      '<button class="utp-act" onclick="sparkPull()">🔄 读取最新抓取</button>' +
+      '<button class="utp-act" onclick="sparkAdoptAll()">✓ 全部采纳（' + cands.length + '）</button>' +
+      '<button class="utp-act danger" onclick="sparkClearAll()">✕ 全部忽略</button>' +
+      '</div>' +
+      '<div class="spk-list">' + rows + '</div>' +
+      (cands.length > 40 ? '<div class="utp-note" style="padding:6px 2px">共 ' + cands.length + ' 条，只显示前 40 条</div>' : '') +`,
+    new: `      '<div class="utp-filters">' +
+      '<span class="spk-plats">' +
+      '<button class="utp-act chip' + (plat === 'all' ? ' on' : '') + '" onclick="sparkPlat(\\'all\\')">全部</button>' +
+      plats.map(function (p) {
+        return '<button class="utp-act chip' + (plat === p ? ' on' : '') + '" onclick="sparkPlat(\\'' + p + '\\')">' + utpEsc(p) + '</button>';
+      }).join('') +
+      '</span>' +
+      '<button class="utp-act" onclick="sparkPull()">🔄 读取最新抓取</button>' +
+      '<button class="utp-act" onclick="sparkAdoptAll(\\'' + plat + '\\')">✓ 全部采纳（' + vis.length + '）</button>' +
+      '<button class="utp-act danger" onclick="sparkClearAll(\\'' + plat + '\\')">✕ 全部忽略</button>' +
+      '</div>' +
+      '<div class="spk-list">' + rows + '</div>' +
+      (vis.length > 40 ? '<div class="utp-note" style="padding:6px 2px">共 ' + vis.length + ' 条，只显示前 40 条</div>' : '') +`,
+  },
+  {
+    name: '32. 平台 chips 选中态样式',
+    old: `    .utp-act { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--bg-card); color: var(--text-warm); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all .15s ease; }`,
+    new: `    .utp-act { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--bg-card); color: var(--text-warm); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all .15s ease; }
+    .utp-act.on { background: var(--gold-bright); color: #fff; border-color: var(--gold-bright); }
+    .spk-plats { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-right: 6px; }`,
   },
 ];
 
