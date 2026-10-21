@@ -72,6 +72,21 @@ for (const name of ['deskpet-players.js', 'wuxia-content.js', 'jianghu.js', '淘
   copied += 1;
 }
 
+/* PWA 外壳：manifest + SW + 图标。缺失即失败退出 —— 不允许发一个
+   「manifest 指向 404」的站点。图标由 淘金矿工小屋/tools/make-pwa-icons.py 生成。 */
+for (const name of ['manifest.webmanifest', 'sw.js', 'icon-192.png', 'icon-512.png']) {
+  const src = path.join(APP, name);
+  if (!fs.existsSync(src)) {
+    console.error(`PWA 外壳缺文件：${name}（先跑 淘金矿工小屋/tools/make-pwa-icons.py 生成图标）`);
+    process.exit(1);
+  }
+  const dst = path.join(DIST, name);
+  fs.copyFileSync(src, dst);
+  bytes += fs.statSync(dst).size;
+  copied += 1;
+}
+console.log('PWA：已搬运 manifest / sw.js / 图标');
+
 /* 新媒体工作台：独立单页；云同步走同一 Worker 的 /api/nm，和旧工作台互不影响。 */
 {
   const src = path.join(REPO, '新媒体工作台', '新媒体工作台·一个人的AI内容工厂.html');
