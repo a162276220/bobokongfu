@@ -72,6 +72,36 @@ for (const name of ['deskpet-players.js', 'wuxia-content.js', 'jianghu.js', '淘
   copied += 1;
 }
 
+/* 新媒体工作台：独立单页；云同步走同一 Worker 的 /api/nm，和旧工作台互不影响。 */
+{
+  const src = path.join(REPO, '新媒体工作台', '新媒体工作台·一个人的AI内容工厂.html');
+  if (!fs.existsSync(src)) {
+    console.error('新媒体工作台源文件缺失：新媒体工作台/新媒体工作台·一个人的AI内容工厂.html');
+    process.exit(1);
+  }
+  const dst = path.join(DIST, 'newmedia.html');
+  fs.copyFileSync(src, dst);
+  bytes += fs.statSync(dst).size;
+  copied += 1;
+  console.log('新媒体工作台：已搬运 newmedia.html');
+}
+
+/* 灵感抓取数据：由 tools/spark_scraper.py 生成。没跑过抓取就没有这个文件——
+   那不是错误，页面桥接层用 typeof window.SPARK_FEED 判断，缺失时静默跳过。
+   但若存在就必须搬进去，否则线上页面永远看不到候选。 */
+{
+  const spark = path.join(APP, 'spark_feed.js');
+  if (fs.existsSync(spark)) {
+    const dst = path.join(DIST, 'spark_feed.js');
+    fs.copyFileSync(spark, dst);
+    bytes += fs.statSync(dst).size;
+    copied += 1;
+    console.log('灵感抓取：已搬运 spark_feed.js');
+  } else {
+    console.log('灵感抓取：spark_feed.js 不存在（没跑过抓取），跳过');
+  }
+}
+
 /* 前端同步层是构建期补丁，不是源文件的一部分：源文件还有另一个写者（phase 系列）会整份重写它，
    直接改会被抹掉（已发生两次）。所以补丁打在 dist 上，源文件保持原样。
    漏打必须失败退出 —— 否则会发一个「看着正常、其实没有云同步」的站点。 */
@@ -87,6 +117,22 @@ for (const name of ['deskpet-players.js', 'wuxia-content.js', 'jianghu.js', '淘
   fs.writeFileSync(idx, text, 'utf8');
   bytes += Buffer.byteLength(text) - Buffer.byteLength(before);
   console.log('同步层补丁：全部生效（' + before.length + ' → ' + text.length + ' 字符）');
+}
+
+/* 新媒体工作台并进卜卜小屋：同样打构建期补丁，不改源文件。
+   嵌入失败比构建失败更坏 —— 用户会以为新工作台丢了。 */
+{
+  const { applyMediaEmbed } = await import('./patch-media-embed.mjs');
+  const idx = path.join(DIST, 'index.html');
+  const before = fs.readFileSync(idx, 'utf8');
+  const { text, report, failed } = applyMediaEmbed(before);
+  if (failed) {
+    console.error('新媒体嵌入补丁没打全：\n  ' + report.filter((r) => /^(MISS|AMBIG|MUST_HAVE)/.test(r)).join('\n  '));
+    process.exit(1);
+  }
+  fs.writeFileSync(idx, text, 'utf8');
+  bytes += Buffer.byteLength(text) - Buffer.byteLength(before);
+  console.log('新媒体嵌入补丁：全部生效（' + before.length + ' → ' + text.length + ' 字符）');
 }
 
 const total = fs.readdirSync(DIST, { recursive: true }).filter((f) =>

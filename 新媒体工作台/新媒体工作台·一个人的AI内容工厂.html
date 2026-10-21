@@ -1,0 +1,3223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新媒体工作台——一个人的 AI 内容工厂</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23221a10'/%3E%3Ctext x='16' y='23' font-size='19' font-weight='700' text-anchor='middle' fill='%23f1e9d8' font-family='Georgia,serif'%3E新%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --paper:#f1e9d8;
+  --paper-2:#f7f1e3;
+  --sheet:#fffaf0;
+  --sheet-2:#fbf4e6;
+  --ink:#221a10;
+  --ink-2:#5a4a36;
+  --ink-3:#8d7a61;
+  --line:#d6c4a8;
+  --line-2:#e7dac5;
+  --accent:#a83e22;
+  --accent-2:#c0552f;
+  --accent-soft:#f4ded2;
+  --olive:#4f6247;
+  --olive-soft:#e4e8dc;
+  --gold:#a97c2f;
+  --gold-soft:#f3e8cf;
+  --blue:#3f5568;
+  --blue-soft:#e2e8eb;
+  --green:#3f6a4f;
+  --red:#9c3324;
+  --serif:"Songti SC","STSong","Noto Serif SC",Georgia,"Times New Roman",serif;
+  --sans:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  --shadow:3px 3px 0 rgba(52,37,20,.13);
+  --shadow-lg:6px 6px 0 rgba(52,37,20,.14);
+  --r:3px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--sans);font-size:14px;line-height:1.6;color:var(--ink);
+  background:
+    radial-gradient(1200px 780px at 12% -12%, #fbf6ea 0%, rgba(251,246,234,0) 58%),
+    radial-gradient(900px 640px at 102% 104%, #e8dcc4 0%, rgba(232,220,196,0) 62%),
+    var(--paper);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+.grain{
+  position:fixed;inset:0;z-index:90;pointer-events:none;opacity:.045;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:multiply;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit}
+::selection{background:#e9c9a6;color:var(--ink)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#cbb794;border-radius:10px;border:2px solid var(--paper)}
+::-webkit-scrollbar-track{background:transparent}
+
+.app{display:flex;min-height:100vh;position:relative;z-index:1}
+.rail{
+  width:248px;flex:0 0 248px;position:sticky;top:0;height:100vh;
+  display:flex;flex-direction:column;gap:18px;padding:26px 18px 20px;
+  border-right:1px dashed var(--line);
+  background:linear-gradient(180deg,rgba(248,242,230,.92),rgba(243,235,219,.78));
+  backdrop-filter:blur(6px);
+}
+.brand{display:flex;align-items:flex-start;gap:11px;padding:0 4px}
+.brand-mark{
+  width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;
+  background:var(--ink);color:var(--paper);font-family:var(--serif);font-size:23px;font-weight:700;
+  box-shadow:4px 4px 0 var(--accent);border-radius:2px;
+}
+.brand h1{margin:0;font-family:var(--serif);font-size:19px;line-height:1.2;letter-spacing:.02em}
+.brand p{margin:4px 0 0;font-size:10px;letter-spacing:.14em;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase}
+.nav{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid transparent;border-radius:2px;
+  cursor:pointer;color:var(--ink-2);font-size:13.5px;font-weight:600;transition:.16s ease;position:relative;
+}
+.nav-item .no{font-family:var(--mono);font-size:10px;color:var(--ink-3);width:20px;flex:0 0 20px}
+.nav-item:hover{background:var(--sheet);color:var(--ink);border-color:var(--line-2)}
+.nav-item.active{background:var(--ink);color:var(--paper);box-shadow:3px 3px 0 var(--accent)}
+.nav-item.active .no{color:#c9b79b}
+.nav-badge{margin-left:auto;min-width:18px;height:18px;padding:0 5px;display:none;place-items:center;border-radius:20px;font-family:var(--mono);font-size:10px;background:var(--accent);color:#fff;font-weight:700}
+.nav-badge.show{display:grid}
+.nav-item.active .nav-badge{background:var(--accent-2)}
+.rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.sync-card{
+  width:100%;text-align:left;border:1px solid var(--line);background:var(--sheet);border-radius:2px;
+  padding:11px 12px;cursor:pointer;box-shadow:2px 2px 0 rgba(52,37,20,.08);transition:.16s;display:block;
+}
+.sync-card:hover{border-color:var(--ink);transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(52,37,20,.12)}
+.sync-card .sc-top{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.02em}
+.sync-card .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3);box-shadow:0 0 0 3px rgba(141,122,97,.14)}
+.sync-card.online .dot{background:var(--green);box-shadow:0 0 0 3px rgba(63,106,79,.16)}
+.sync-card.syncing .dot{background:var(--gold);animation:pulse 1s infinite}
+.sync-card.offline .dot{background:var(--accent);box-shadow:0 0 0 3px rgba(168,62,34,.15)}
+.sync-card .sc-sub{margin-top:4px;font-size:10.5px;color:var(--ink-3);font-family:var(--mono);line-height:1.5;word-break:break-all}
+.rail-meta{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);line-height:1.9;letter-spacing:.04em;padding:0 3px}
+.rail-meta b{color:var(--ink-2);font-weight:600}
+
+.main{flex:1;min-width:0;padding:0 36px 64px;max-width:1460px;margin:0 auto}
+.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:28px 2px 20px;border-bottom:1px solid var(--line);position:relative}
+.topbar:after{content:"";position:absolute;left:0;right:0;bottom:-4px;border-bottom:1px solid var(--line-2)}
+.top-kicker{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--ink-3);text-transform:uppercase}
+.topbar h1{margin:3px 0 0;font-family:var(--serif);font-size:29px;line-height:1.15;font-weight:700;letter-spacing:.01em}
+.top-side{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.date-chip{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);border:1px solid var(--line);background:var(--sheet);padding:6px 10px;border-radius:20px;white-space:nowrap}
+.sync-pill{
+  display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);
+  border:1px solid var(--line);background:var(--sheet);padding:6px 10px;border-radius:20px;cursor:pointer;white-space:nowrap;
+}
+.sync-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--ink-3)}
+.sync-pill.online .dot{background:var(--green)}
+.sync-pill.syncing .dot{background:var(--gold);animation:pulse 1s infinite}
+.sync-pill.offline .dot{background:var(--accent)}
+.page-foot{margin-top:44px;padding-top:14px;border-top:1px dashed var(--line);display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:9.5px;color:var(--ink-3);letter-spacing:.04em;flex-wrap:wrap}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+
+.view{display:none}
+.view.active{display:block;animation:rise .34s cubic-bezier(.2,.8,.25,1)}
+.section{padding-top:26px}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:13px}
+.sec-title{display:flex;align-items:baseline;gap:10px}
+.sec-title h2{margin:0;font-family:var(--serif);font-size:18px;font-weight:700;letter-spacing:.02em}
+.sec-title .rule{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);letter-spacing:.12em;text-transform:uppercase}
+.sec-sub{font-size:11.5px;color:var(--ink-3);font-family:var(--mono);text-align:right}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid transparent;border-radius:2px;
+  padding:9px 15px;font-size:12.5px;font-weight:700;letter-spacing:.02em;cursor:pointer;transition:.15s ease;white-space:nowrap;
+  background:var(--sheet);color:var(--ink);border-color:var(--line);box-shadow:2px 2px 0 rgba(52,37,20,.08);
+}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(52,37,20,.12);border-color:var(--ink-2)}
+.btn:active{transform:translate(1px,1px);box-shadow:0 0 0 transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.ink{background:var(--ink);color:var(--paper);border-color:var(--ink);box-shadow:3px 3px 0 var(--accent)}
+.btn.ink:hover{box-shadow:4px 4px 0 var(--accent)}
+.btn.accent{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:3px 3px 0 rgba(34,26,16,.75)}
+.btn.ghost{background:transparent;box-shadow:none;border-color:var(--line)}
+.btn.ghost:hover{background:var(--sheet)}
+.btn.sm{padding:6px 10px;font-size:11.5px;box-shadow:none}
+.btn.tiny{padding:4px 8px;font-size:10.5px;box-shadow:none;border-color:var(--line-2)}
+.btn.danger{color:var(--red);border-color:#d8b3a9;background:#fdf3ef}
+.btn.danger:hover{border-color:var(--red)}
+.btn.wide{width:100%}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
+.kpi{
+  position:relative;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);
+  padding:15px 16px 13px;box-shadow:var(--shadow);overflow:hidden;
+}
+.kpi:before{content:"";position:absolute;left:0;top:0;height:3px;width:100%;background:var(--ink);opacity:.82}
+.kpi.k1:before{background:var(--accent)}
+.kpi.k2:before{background:var(--gold)}
+.kpi.k3:before{background:var(--blue)}
+.kpi.k4:before{background:var(--olive)}
+.kpi .idx{position:absolute;right:10px;top:8px;font-family:var(--mono);font-size:9px;color:var(--ink-3);letter-spacing:.1em}
+.kpi-num{font-family:var(--serif);font-size:32px;line-height:1.05;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi-num .unit{font-size:12px;color:var(--ink-3);font-family:var(--sans);font-weight:600;margin-left:3px}
+.kpi-label{margin-top:6px;font-size:11.5px;color:var(--ink-2);font-weight:600;letter-spacing:.02em}
+.kpi-note{margin-top:2px;font-family:var(--mono);font-size:9.5px;color:var(--ink-3)}
+
+.split{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(310px,.88fr);gap:18px;align-items:start}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;border-bottom:1px dashed var(--line);background:linear-gradient(180deg,rgba(255,250,240,.9),rgba(248,240,226,.55))}
+.panel-head h3{margin:0;font-family:var(--serif);font-size:15px;letter-spacing:.02em}
+.panel-head .hint{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);letter-spacing:.02em}
+.panel-body{padding:14px 15px}
+
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:2px;overflow:hidden;background:var(--paper-2)}
+.seg button{border:0;background:transparent;padding:7px 11px;font-size:11.5px;font-weight:700;color:var(--ink-2);cursor:pointer;border-right:1px solid var(--line-2);transition:.14s}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--sheet)}
+.seg button.on{background:var(--ink);color:var(--paper)}
+.seg .count{font-family:var(--mono);font-size:9.5px;opacity:.72;margin-left:3px}
+
+.topic-list{display:flex;flex-direction:column;gap:10px}
+.topic-card{
+  position:relative;display:flex;gap:13px;padding:13px 14px 12px 17px;background:var(--sheet);border:1px solid var(--line);
+  border-radius:2px;box-shadow:2px 2px 0 rgba(52,37,20,.07);transition:.16s;overflow:hidden;
+}
+.topic-card:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(52,37,20,.11);border-color:#c8b291}
+.topic-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tone,var(--ink-3))}
+.topic-main{flex:1;min-width:0}
+.topic-title{font-family:var(--serif);font-size:15px;font-weight:700;line-height:1.45;margin:0 0 6px;word-break:break-word}
+.topic-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:9.5px;color:var(--ink-3)}
+.topic-note{margin-top:7px;font-size:11.5px;color:var(--ink-2);line-height:1.65;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.topic-side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:10px;flex:0 0 auto}
+.line-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:9.5px;font-weight:700;letter-spacing:.05em;background:var(--tone-soft);color:var(--tone)}
+.line-tag .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.status{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:9.5px;font-weight:700;letter-spacing:.05em;background:var(--paper-2);color:var(--ink-2);border:1px solid var(--line-2);white-space:nowrap}
+.status.todo{background:#f1ecdf;color:#75654f}
+.status.making{background:var(--gold-soft);color:#7f5a16;border-color:#e4d0a5}
+.status.done{background:var(--olive-soft);color:var(--green);border-color:#cfd8c6}
+.status.review{background:var(--blue-soft);color:var(--blue);border-color:#cbd8de}
+.status.approved{background:var(--olive-soft);color:var(--green);border-color:#cfd8c6}
+.status.published{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.status.rejected{background:var(--accent-soft);color:var(--red);border-color:#e3c3b8}
+.status.failed{background:var(--accent-soft);color:var(--red);border-color:#e3c3b8}
+.status.used{background:var(--paper-2);color:var(--ink-3);border-color:var(--line-2)}
+.topic-acts{display:flex;gap:6px;align-items:center}
+.icon-btn{border:1px solid transparent;background:transparent;color:var(--ink-3);width:24px;height:24px;display:grid;place-items:center;border-radius:2px;cursor:pointer;font-size:13px}
+.icon-btn:hover{border-color:var(--line);background:var(--paper-2);color:var(--accent)}
+
+.hot-list{display:flex;flex-direction:column}
+.hot-item{display:flex;gap:10px;align-items:flex-start;padding:10px 2px;border-bottom:1px dashed var(--line-2)}
+.hot-item:last-child{border-bottom:0}
+.hot-rank{width:20px;flex:0 0 20px;font-family:var(--serif);font-size:15px;font-weight:700;color:var(--ink-3);text-align:center;line-height:1.35}
+.hot-item:nth-child(1) .hot-rank,.hot-item:nth-child(2) .hot-rank,.hot-item:nth-child(3) .hot-rank{color:var(--accent)}
+.hot-body{flex:1;min-width:0}
+.hot-title{font-size:12.5px;font-weight:600;line-height:1.5;word-break:break-word}
+.hot-meta{display:flex;align-items:center;gap:8px;margin-top:3px;font-family:var(--mono);font-size:9px;color:var(--ink-3);flex-wrap:wrap}
+.heat{color:var(--accent);font-weight:700}
+.hot-act{flex:0 0 auto;padding-top:1px}
+.hot-act .btn{padding:3px 7px;font-size:10px}
+.hot-act .label{font-family:var(--mono);font-size:9px;color:var(--ink-3)}
+.hot-empty{padding:20px 6px;text-align:center;color:var(--ink-3);font-size:11.5px}
+
+.line-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.line-card{position:relative;background:var(--sheet);border:1px solid var(--line);border-radius:2px;padding:14px 14px 12px;box-shadow:var(--shadow);overflow:hidden}
+.line-card .ln{position:absolute;right:-6px;top:-20px;font-family:var(--serif);font-size:74px;font-weight:700;color:var(--tone);opacity:.09;line-height:1}
+.line-card h3{margin:0;font-family:var(--serif);font-size:16px;display:flex;align-items:center;gap:7px}
+.line-card .desc{margin-top:3px;font-size:10.5px;color:var(--ink-3);letter-spacing:.02em}
+.line-card .stat{margin-top:13px;display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.line-card .stat b{font-family:var(--serif);font-size:24px;line-height:1;font-weight:700}
+.line-card .stat span{font-family:var(--mono);font-size:9px;color:var(--ink-3)}
+.line-card .btn{margin-top:10px;width:100%;padding:5px 8px;font-size:10.5px}
+.line-mark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--tone-soft);color:var(--tone);font-family:var(--serif);font-weight:700;font-size:14px;border:1px solid color-mix(in srgb,var(--tone) 25%,transparent)}
+
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;align-items:start}
+.board-col{background:rgba(255,250,240,.55);border:1px dashed var(--line);border-radius:2px;min-height:230px}
+.board-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px dashed var(--line-2)}
+.board-head h4{margin:0;font-family:var(--serif);font-size:13.5px;letter-spacing:.03em}
+.board-head .n{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+.board-body{padding:10px;display:flex;flex-direction:column;gap:9px}
+.task-card{background:var(--sheet);border:1px solid var(--line);border-left:3px solid var(--tone,var(--ink-3));border-radius:2px;padding:10px 11px;box-shadow:2px 2px 0 rgba(52,37,20,.06)}
+.task-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.task-title{font-size:12.5px;font-weight:700;line-height:1.5;margin:5px 0 7px;word-break:break-word}
+.task-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--ink-3)}
+.progress{height:6px;background:#eee3cf;border-radius:20px;overflow:hidden;margin:8px 0 5px;border:1px solid #e1d2b8}
+.progress i{display:block;height:100%;background:var(--ink);transition:width .6s ease;position:relative}
+.progress i:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.18) 0 5px,transparent 5px 10px)}
+.progress.gold i{background:var(--gold)}
+.progress.done i{background:var(--green)}
+.task-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.task-stage{font-size:10px;color:var(--ink-2);font-family:var(--mono)}
+.task-error{margin-top:6px;font-size:10.5px;color:var(--red);line-height:1.5;background:#fdf1ec;border:1px solid #ecd0c6;padding:5px 7px;border-radius:2px}
+.empty{border:1px dashed var(--line);background:rgba(255,250,240,.4);padding:26px 18px;text-align:center;color:var(--ink-3);font-size:11.5px;line-height:1.8}
+.empty b{display:block;font-family:var(--serif);font-size:14px;color:var(--ink-2);margin-bottom:3px;font-weight:700}
+
+.ip-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.ip-card{background:var(--sheet);border:1px solid var(--line);border-radius:2px;box-shadow:var(--shadow);overflow:hidden;position:relative}
+.ip-cover{position:relative;height:150px;background:var(--tone-soft);overflow:hidden;border-bottom:1px solid var(--line);display:grid;place-items:center}
+.ip-cover .ring{position:absolute;width:108px;height:108px;border:1px solid color-mix(in srgb,var(--tone) 35%,transparent);border-radius:50%;transform:rotate(-12deg)}
+.ip-cover .ring.r2{width:136px;height:136px;border-style:dashed;opacity:.6}
+.ip-cover .initial{font-family:var(--serif);font-size:54px;font-weight:700;color:var(--tone);line-height:1;position:relative;z-index:1}
+.ip-cover .stamp{position:absolute;right:10px;bottom:9px;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;color:var(--tone);border:1px solid currentColor;padding:2px 5px;border-radius:2px;opacity:.7}
+.ip-lock{position:absolute;left:10px;top:10px;font-family:var(--mono);font-size:9px;letter-spacing:.06em;background:rgba(255,250,240,.94);border:1px solid var(--line);padding:3px 7px;border-radius:20px;color:var(--ink-2);display:none;align-items:center;gap:4px}
+.ip-card.locked .ip-lock{display:inline-flex}
+.ip-card.locked .ip-cover{filter:saturate(.72)}
+.ip-body{padding:12px 13px 13px}
+.ip-name{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ip-name h3{margin:0;font-family:var(--serif);font-size:17px}
+.ip-persona{margin:7px 0 0;font-size:11.5px;line-height:1.75;color:var(--ink-2);min-height:40px}
+.ip-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-2);font-family:var(--mono);font-size:9.5px;color:var(--ink-3)}
+.ip-meta b{color:var(--ink);font-size:12px}
+.ip-actions{display:flex;gap:6px;margin-top:9px}
+.ip-actions .btn{flex:1;padding:5px 8px;font-size:10.5px}
+
+.draft-grid{display:grid;grid-template-columns:330px minmax(0,1fr);gap:16px;align-items:start}
+.draft-list{display:flex;flex-direction:column;gap:8px;max-height:76vh;overflow:auto;padding-right:3px}
+.draft-item{border:1px solid var(--line);background:var(--sheet);border-radius:2px;padding:10px 11px;cursor:pointer;transition:.14s;position:relative;box-shadow:1px 1px 0 rgba(52,37,20,.05)}
+.draft-item:hover{border-color:#c6ae8d;transform:translateX(1px)}
+.draft-item.on{border-color:var(--ink);box-shadow:3px 3px 0 rgba(52,37,20,.12);background:var(--sheet-2)}
+.draft-item.on:before{content:"";position:absolute;left:-1px;top:-1px;bottom:-1px;width:3px;background:var(--accent)}
+.draft-item h4{margin:0 0 5px;font-family:var(--serif);font-size:13px;line-height:1.45;font-weight:700;word-break:break-word}
+.draft-item .meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--ink-3)}
+.preview{background:var(--sheet);border:1px solid var(--line);border-radius:2px;box-shadow:var(--shadow);min-height:400px}
+.preview-head{padding:16px 18px 13px;border-bottom:1px dashed var(--line);position:relative}
+.preview-head h2{margin:0;font-family:var(--serif);font-size:21px;line-height:1.4;letter-spacing:.01em;padding-right:70px}
+.preview-head .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-family:var(--mono);font-size:9.5px;color:var(--ink-3)}
+.preview-head .stamp{position:absolute;right:16px;top:16px;border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;padding:3px 6px;border-radius:2px;transform:rotate(3deg);opacity:.8}
+.md-body{padding:16px 20px 8px;font-size:13.5px;line-height:2;color:#33281b;max-height:52vh;overflow:auto}
+.md-body p{margin:0 0 12px}
+.md-body h2,.md-body h3{font-family:var(--serif);font-size:16px;margin:18px 0 8px;color:var(--ink);letter-spacing:.02em}
+.md-body .lead{font-family:var(--serif);font-size:15px;color:var(--ink);border-left:2px solid var(--accent);padding-left:11px}
+.md-body .spec{font-family:var(--mono);font-size:10.5px;line-height:1.9;background:var(--paper-2);border:1px dashed var(--line);padding:9px 11px;color:var(--ink-2)}
+.md-body strong{color:var(--ink)}
+.preview-tags{display:flex;gap:6px;flex-wrap:wrap;padding:0 20px 12px}
+.tag{font-family:var(--mono);font-size:9.5px;color:var(--ink-2);background:var(--paper-2);border:1px solid var(--line-2);padding:3px 7px;border-radius:20px}
+.preview-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:13px 18px;border-top:1px dashed var(--line);background:linear-gradient(180deg,rgba(248,240,226,.3),rgba(248,240,226,.6))}
+.review-note{color:var(--red);font-size:11.5px;line-height:1.6}
+.preview-empty{display:grid;place-items:center;min-height:400px;color:var(--ink-3);font-size:12px;text-align:center;padding:30px}
+
+.pub-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.9fr);gap:16px;align-items:start}
+.pub-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.pub-card{background:var(--sheet);border:1px solid var(--line);border-radius:2px;padding:12px 13px;box-shadow:2px 2px 0 rgba(52,37,20,.06);position:relative;overflow:hidden}
+.pub-card:before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--tone,var(--ink-3))}
+.pub-card h4{margin:4px 0 6px;font-family:var(--serif);font-size:14px;line-height:1.45;font-weight:700}
+.pub-card .meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--ink-3)}
+.pub-card .acts{display:flex;gap:6px;margin-top:10px}
+.pub-card .acts .btn{flex:1;padding:5px 7px;font-size:10.5px}
+.platform-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.platform{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:2px;border:1px solid var(--line-2);color:var(--ink-2);background:var(--paper-2)}
+table.data{width:100%;border-collapse:collapse;font-size:11.5px}
+table.data th{font-family:var(--mono);font-weight:500;font-size:9px;color:var(--ink-3);text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);letter-spacing:.05em;white-space:nowrap}
+table.data td{padding:8px;border-bottom:1px dashed var(--line-2);vertical-align:middle}
+table.data tr:last-child td{border-bottom:0}
+table.data td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+table.data tbody tr:hover{background:rgba(241,233,216,.35)}
+table.data .t-title{font-weight:600;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.platform-tag{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:20px;border:1px solid var(--line-2);background:var(--paper-2);white-space:nowrap}
+.records{max-height:440px;overflow:auto}
+
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;align-items:start}
+.bars{display:flex;flex-direction:column;gap:11px;padding-top:2px}
+.bar-row{display:grid;grid-template-columns:80px minmax(0,1fr) 76px;align-items:center;gap:10px}
+.bar-row .lbl{font-size:11px;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+.bar-row .lbl i{width:6px;height:6px;border-radius:50%;background:var(--tone);display:inline-block}
+.bar-track{height:16px;background:var(--paper-2);border:1px solid var(--line-2);border-radius:2px;overflow:hidden;position:relative}
+.bar-fill{height:100%;background:var(--tone);width:0;transition:width .7s cubic-bezier(.2,.8,.25,1);opacity:.85}
+.bar-fill:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.14) 0 6px,transparent 6px 12px)}
+.bar-row .val{font-family:var(--mono);font-size:10.5px;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.trend{width:100%;height:auto;display:block}
+.insight-list{display:flex;flex-direction:column;gap:9px}
+.insight{border:1px solid var(--line-2);border-left:3px solid var(--accent);background:var(--sheet-2);padding:9px 11px;border-radius:2px}
+.insight b{display:block;font-family:var(--serif);font-size:13px;margin-bottom:2px}
+.insight span{font-size:11px;color:var(--ink-2);line-height:1.65}
+.insight.olive{border-left-color:var(--olive)}
+.insight.blue{border-left-color:var(--blue)}
+.insight.gold{border-left-color:var(--gold)}
+.dash-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:17px}
+
+.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;align-items:start}
+.set-card{background:var(--sheet);border:1px solid var(--line);border-radius:2px;box-shadow:var(--shadow);padding:16px 17px}
+.set-card h3{margin:0 0 4px;font-family:var(--serif);font-size:16px;display:flex;align-items:center;gap:7px}
+.set-card .desc{font-size:11px;color:var(--ink-3);line-height:1.7;margin-bottom:12px}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line-2);font-size:11.5px}
+.set-row:last-child{border-bottom:0}
+.set-row .k{color:var(--ink-2)}
+.set-row .v{font-family:var(--mono);font-size:10.5px;color:var(--ink);text-align:right;word-break:break-all}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.field label{font-size:11px;font-weight:700;color:var(--ink-2);letter-spacing:.02em}
+.field label .opt{font-weight:400;color:var(--ink-3);font-size:10px}
+.field input,.field select,.field textarea{
+  width:100%;border:1px solid var(--line);border-radius:2px;padding:9px 10px;font-family:var(--sans);font-size:12.5px;
+  background:var(--sheet);color:var(--ink);outline:none;transition:.14s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--ink);box-shadow:2px 2px 0 rgba(52,37,20,.08)}
+.field textarea{resize:vertical;min-height:78px;line-height:1.7}
+.field .hint{font-size:10px;color:var(--ink-3);line-height:1.6}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.table-counts{display:flex;flex-direction:column;gap:0}
+.table-counts .set-row .v b{font-size:12px}
+.sync-banner{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px dashed var(--line);background:var(--paper-2);border-radius:2px;margin-bottom:12px}
+.sync-banner .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3);flex:0 0 8px}
+.sync-banner.online .dot{background:var(--green)}
+.sync-banner.offline .dot{background:var(--accent)}
+.sync-banner .t{font-size:11.5px;font-weight:700}
+.sync-banner .s{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);margin-top:1px;word-break:break-all}
+.cloud-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+.cloud-actions .btn{flex:1;padding:6px 8px;font-size:10.5px}
+.api-note{font-family:var(--mono);font-size:9px;color:var(--ink-3);line-height:1.8;margin-top:11px;word-break:break-all}
+.import-row{display:flex;gap:7px;margin-top:9px}
+.import-row .btn{flex:1;padding:6px 8px;font-size:10.5px}
+
+.modal-back{
+  position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:22px;
+  background:rgba(34,26,16,.34);backdrop-filter:blur(3px);animation:fade .18s ease;
+}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{
+  width:min(560px,100%);max-height:88vh;overflow:auto;background:var(--sheet);border:1px solid var(--ink);
+  border-radius:2px;box-shadow:10px 10px 0 rgba(34,26,16,.2);position:relative;animation:pop .22s cubic-bezier(.2,.8,.25,1);
+}
+@keyframes pop{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+.modal:before{
+  content:"";position:absolute;left:50%;top:-9px;transform:translateX(-50%) rotate(-1deg);width:92px;height:18px;
+  background:rgba(214,196,168,.55);border:1px solid rgba(180,158,124,.35);z-index:2;
+}
+.modal-x{position:absolute;right:11px;top:9px;border:1px solid transparent;background:transparent;width:28px;height:28px;font-size:18px;color:var(--ink-3);cursor:pointer;border-radius:2px;z-index:3}
+.modal-x:hover{border-color:var(--line);color:var(--ink);background:var(--paper-2)}
+.modal-head{padding:22px 24px 13px;border-bottom:1px dashed var(--line)}
+.modal-head .stamp{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase}
+.modal-head h3{margin:4px 0 0;font-family:var(--serif);font-size:21px;line-height:1.35;padding-right:26px}
+.modal-head p{margin:5px 0 0;font-size:11.5px;color:var(--ink-3);line-height:1.65}
+.modal-body{padding:17px 24px 21px}
+.modal-body .field:last-child{margin-bottom:0}
+.modal-note{font-size:11px;color:var(--ink-3);line-height:1.7;background:var(--paper-2);border:1px dashed var(--line);padding:8px 10px;border-radius:2px;margin-top:10px}
+.form-error{display:none;font-size:11.5px;color:var(--red);background:#fdf1ec;border:1px solid #ecd0c6;padding:7px 9px;border-radius:2px;margin-bottom:10px;line-height:1.6}
+.form-error.show{display:block}
+.seg-wide{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden;margin-bottom:14px}
+.seg-wide button{flex:1;border:0;background:var(--paper-2);padding:8px 10px;font-size:11.5px;font-weight:700;cursor:pointer;color:var(--ink-2);border-right:1px solid var(--line-2)}
+.seg-wide button:last-child{border-right:0}
+.seg-wide button.on{background:var(--ink);color:var(--paper)}
+.radio-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.radio-card{border:1px solid var(--line);background:var(--sheet);padding:9px 10px;border-radius:2px;cursor:pointer;font-size:11.5px;display:flex;align-items:center;gap:7px;transition:.14s}
+.radio-card:hover{border-color:var(--ink-2)}
+.radio-card.on{border-color:var(--ink);background:var(--paper-2);box-shadow:2px 2px 0 rgba(52,37,20,.1)}
+.radio-card .r{width:11px;height:11px;border-radius:50%;border:1px solid var(--ink-3);display:grid;place-items:center;flex:0 0 11px}
+.radio-card.on .r{border-color:var(--accent)}
+.radio-card.on .r:after{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.confirm-line{font-size:12.5px;line-height:1.8;color:var(--ink-2)}
+
+#toastRoot{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(560px,calc(100vw - 30px))}
+.toast{
+  background:var(--ink);color:var(--paper);font-size:12px;line-height:1.5;padding:10px 16px;border-radius:2px;
+  box-shadow:4px 4px 0 rgba(168,62,34,.55);max-width:100%;animation:toastIn .25s cubic-bezier(.2,.8,.25,1);
+}
+.toast.ok{background:#2f4a38}
+.toast.warn{background:#6f4a17}
+.toast.bad{background:#7c2a1d}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+.mono{font-family:var(--mono)}
+.muted{color:var(--ink-3)}
+.accent{color:var(--accent)}
+.right{text-align:right}
+.mt6{margin-top:6px}.mt10{margin-top:10px}.mt14{margin-top:14px}
+.hide{display:none!important}
+.spacer{flex:1}
+.nowrap{white-space:nowrap}
+
+@media (max-width:1180px){
+  .rail{width:218px;flex-basis:218px;padding-left:14px;padding-right:14px}
+  .main{padding:0 24px 54px}
+  .dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:980px){
+  .split,.pub-grid,.dash-grid{grid-template-columns:1fr}
+  .line-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hot-panel{position:static!important}
+  .draft-grid{grid-template-columns:1fr}
+  .draft-list{max-height:300px}
+  .settings-grid{grid-template-columns:1fr}
+}
+@media (max-width:780px){
+  .app{display:block}
+  .rail{position:static;width:auto;height:auto;border-right:0;border-bottom:1px dashed var(--line);padding:16px 16px 12px;gap:12px}
+  .brand h1{font-size:17px}
+  .brand-mark{width:36px;height:36px;flex-basis:36px;font-size:20px}
+  .nav{flex-direction:row;overflow:auto;gap:4px;padding-bottom:2px}
+  .nav-item{padding:8px 10px;white-space:nowrap;font-size:12px}
+  .nav-item .no{display:none}
+  .rail-foot{flex-direction:row;align-items:center;gap:8px;margin-top:2px}
+  .sync-card{flex:1;padding:8px 10px}
+  .rail-meta{display:none}
+  .main{padding:0 15px 48px}
+  .topbar{padding:18px 1px 14px;align-items:flex-start;flex-direction:column;gap:11px}
+  .topbar h1{font-size:24px}
+  .top-side{justify-content:flex-start}
+  .board{grid-template-columns:1fr}
+  .pub-cards{grid-template-columns:1fr}
+  .ip-grid{grid-template-columns:1fr}
+  .dash-kpis{grid-template-columns:1fr 1fr}
+  .bar-row{grid-template-columns:66px minmax(0,1fr) 62px}
+}
+@media (max-width:520px){
+  .kpi-grid{grid-template-columns:1fr 1fr;gap:9px}
+  .kpi{padding:12px 12px 10px}
+  .kpi-num{font-size:26px}
+  .line-strip{grid-template-columns:1fr}
+  .radio-grid{grid-template-columns:1fr}
+  .topic-card{flex-direction:column;gap:9px}
+  .topic-side{flex-direction:row;align-items:center;width:100%}
+  .preview-head h2{font-size:18px;padding-right:0}
+  .preview-head .stamp{position:static;display:inline-block;margin-top:7px;transform:none}
+}
+
+/* ============ embed：被卜卜小屋以 iframe 嵌入时，收起自己的侧栏，七视图改为顶部横排 ============ */
+.nav-embed{display:none}
+body.embed .rail{display:none}
+body.embed .app{display:block}
+body.embed .main{max-width:none;padding:0 28px 48px}
+body.embed .grain{display:none}
+body.embed .nav-embed{
+  display:flex;flex-direction:row;gap:4px;margin:0;padding:8px 0;
+  overflow-x:auto;position:sticky;top:0;z-index:40;
+  background:rgba(241,233,216,.96);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);
+}
+body.embed .nav-embed .nav-item{flex:0 0 auto;width:auto;white-space:nowrap;padding:7px 11px}
+body.embed .nav-embed .nav-item .no{width:auto}
+body.embed .nav-embed .nav-badge{margin-left:6px}
+body.embed .topbar{padding:18px 2px 16px}
+body.embed .date-chip{display:none}
+body.embed .page-foot{margin-top:24px}
+@media (max-width:780px){
+  body.embed .main{padding:0 15px 40px}
+  body.embed .nav-embed{padding:7px 0}
+}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">新</div>
+      <div>
+        <h1>新媒体工作台</h1>
+        <p>One-person AI Factory</p>
+      </div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rail-foot">
+      <button class="sync-card" id="syncCard" data-action="account">
+        <div class="sc-top"><span class="dot"></span><span id="syncCardTitle">本地模式</span></div>
+        <div class="sc-sub" id="syncCardSub">点击登录，开启云端双向同步</div>
+      </button>
+      <div class="rail-meta">7 张数据表 · 选题 / 热点 / 任务 / 成品 / IP / 发布 / 数据<br><b>本地优先</b> · 在线存储 · 双向同步</div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <div class="top-kicker" id="topKicker">Workbench / 01</div>
+        <h1 id="topTitle">选题中心</h1>
+      </div>
+      <div class="top-side">
+        <span class="date-chip" id="dateChip"></span>
+        <button class="sync-pill" id="syncPill" data-action="sync-now"><span class="dot"></span><span id="syncPillText">本地</span></button>
+        <button class="btn ink" id="topAction" data-action="new-topic">登记新选题</button>
+      </div>
+    </header>
+    <nav class="nav nav-embed" id="navEmbed" aria-label="新媒体视图"></nav>
+    <div id="views">
+      <section class="view" id="view-topics" data-view="topics"></section>
+      <section class="view" id="view-factory" data-view="factory"></section>
+      <section class="view" id="view-ip" data-view="ip"></section>
+      <section class="view" id="view-drafts" data-view="drafts"></section>
+      <section class="view" id="view-publish" data-view="publish"></section>
+      <section class="view" id="view-dashboard" data-view="dashboard"></section>
+      <section class="view" id="view-settings" data-view="settings"></section>
+    </div>
+    <footer class="page-foot">
+      <span>新媒体工作台 · 一个人的 AI 内容工厂</span>
+      <span id="footMeta">纸感工作台 · 无外部依赖 · 数据可在线同步</span>
+    </footer>
+  </main>
+</div>
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+<script>
+const WORKER_ORIGIN = 'https://workbench.goldminer-hut.workers.dev';
+const LS_KEY = 'nm_workbench_v1';
+const SETTINGS_KEY = 'nm_workbench_settings_v1';
+const EMBED = new URLSearchParams(location.search).get('embed') === '1';
+const SHELL_SUMMARY_KEY = 'nm_shell_summary_v1';
+if (EMBED) document.body.classList.add('embed');
+const TABLES = ['topic', 'hot', 'task', 'content', 'ip', 'pub', 'stat'];
+const TABLE_LABEL = { topic: '选题池', hot: '热点池', task: '制作任务', content: '内容成品', ip: 'IP 形象库', pub: '发布记录', stat: '数据记录' };
+const TABLE_COLS = {
+  topic: ['title', 'line', 'note', 'source', 'hot_id', 'status', 'created_at'],
+  hot: ['title', 'platform', 'heat', 'status', 'fetched_at'],
+  task: ['topic_id', 'line', 'status', 'stage', 'progress', 'params', 'error', 'ip_id', 'content_id', 'started_at', 'created_at'],
+  content: ['title', 'line', 'status', 'body', 'tags', 'assets', 'review_note', 'prev_version_id', 'task_id', 'topic_id', 'ip_id', 'version', 'finished_at', 'approved_at'],
+  ip: ['name', 'persona', 'config', 'status', 'appearances', 'created_at'],
+  pub: ['content_id', 'platform', 'method', 'status', 'published_at'],
+  stat: ['content_id', 'date', 'views', 'likes', 'comments', 'shares', 'favorites'],
+};
+const LINES = {
+  long: { key: 'long', name: '长图文', desc: '公众号 · 深度长文', tone: '#3f5568', soft: '#e2e8eb', mark: '文', word: '约 1200 字' },
+  short: { key: 'short', name: '短图文', desc: '小红书 · 图文笔记', tone: '#a83e22', soft: '#f4ded2', mark: '图', word: '约 260 字' },
+  voiceover: { key: 'voiceover', name: '口播短视频', desc: '视频号 · 约 60 秒', tone: '#a97c2f', soft: '#f3e8cf', mark: '声', word: '约 60 秒' },
+  drama: { key: 'drama', name: '微短剧', desc: '抖音 · 6 镜剧情', tone: '#4f6247', soft: '#e4e8dc', mark: '剧', word: '6 镜 · 60 秒' },
+};
+const LINE_KEYS = ['long', 'short', 'voiceover', 'drama'];
+const PLATFORMS = ['公众号', '小红书', '抖音', '视频号'];
+const STATUS_TEXT = {
+  todo: '待做', making: '制作中', done: '已完成', queued: '待处理', running: '制作中', review: '待把关',
+  approved: '已通过', rejected: '已打回', published: '已发布', failed: '失败', new: '新热点', used: '已转选题',
+  idle: '空闲', active: '出演中',
+};
+const VIEWS = [
+  { key: 'topics', no: '01', name: '选题中心', kicker: 'Topic Desk' },
+  { key: 'factory', no: '02', name: '内容工厂', kicker: 'Production Floor' },
+  { key: 'ip', no: '03', name: 'IP 形象库', kicker: 'Persona Library' },
+  { key: 'drafts', no: '04', name: '草稿箱', kicker: 'Review Room' },
+  { key: 'publish', no: '05', name: '发布中心', kicker: 'Publishing Desk' },
+  { key: 'dashboard', no: '06', name: '数据看板', kicker: 'Data Ledger' },
+  { key: 'settings', no: '07', name: '系统设置', kicker: 'Preferences' },
+];
+
+const nowIso = () => new Date().toISOString();
+const pad2 = (n) => String(n).padStart(2, '0');
+const dayKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const todayKey = () => dayKey(new Date());
+function isoAt(dayOffset, hour, minute) {
+  const d = new Date();
+  d.setDate(d.getDate() + (dayOffset || 0));
+  d.setHours(hour == null ? 9 : hour, minute == null ? 0 : minute, 0, 0);
+  return d.toISOString();
+}
+const isoAgo = (ms) => new Date(Date.now() - ms).toISOString();
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+const fmt = (n) => {
+  n = num(n);
+  if (Math.abs(n) >= 100000000) return (n / 100000000).toFixed(1).replace(/\.0$/, '') + '亿';
+  if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + '万';
+  return n.toLocaleString('zh-CN');
+};
+const fmtTime = (iso) => {
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+const fmtDay = (iso) => {
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+const hm = (iso) => { const d = new Date(iso); return isNaN(d) ? '—' : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+function relTime(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '—';
+  const diff = Date.now() - t;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+  if (diff < 172800000) return '昨天 ' + hm(iso);
+  return fmtTime(iso);
+}
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function seeded(seed) {
+  let t = seed + 0x6D2B79F5;
+  return function () {
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const uid = (prefix) => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+const parseJson = (s, fallback) => {
+  if (s && typeof s === 'object') return s;
+  try { const v = JSON.parse(s); return v == null ? fallback : v; } catch { return fallback; }
+};
+const lineOf = (k) => LINES[k] || LINES.long;
+const lineTag = (k) => { const l = lineOf(k); return `<span class="line-tag" style="--tone:${l.tone};--tone-soft:${l.soft}"><span class="dot"></span>${l.name}</span>`; };
+const statusChip = (s) => `<span class="status ${esc(s)}">${esc(STATUS_TEXT[s] || s || '—')}</span>`;
+const platformTag = (p) => `<span class="platform-tag">${esc(p)}</span>`;
+const contentTitle = (id) => (S.data.content.find((c) => c.rid === id) || {}).title || '未命名成品';
+
+function emptyState(title, sub) {
+  return `<div class="empty"><b>${esc(title)}</b>${esc(sub || '')}</div>`;
+}
+
+/* ---------------- 状态 ---------------- */
+const defaultSettings = { apiBase: '', apiKey: '', model: 'gpt-4o-mini', token: '', tone: '克制' };
+let S = {
+  data: { topic: [], hot: [], task: [], content: [], ip: [], pub: [], stat: [] },
+  meta: { seededAt: '', lastHotAt: '', hotSource: '', hotError: '', lastSync: '', demo: false, userTouched: false },
+  dirty: [],
+  settings: { ...defaultSettings },
+  cloud: { status: 'local', user: null, error: '', busy: false, lastAt: '' },
+  ui: { view: 'topics', topicFilter: 'all', draftFilter: 'review', draftId: '', pubLine: 'all' },
+};
+
+function normalizeRow(table, r) {
+  if (!r || typeof r !== 'object') return null;
+  const out = { rid: String(r.rid || uid(table)), updatedAt: r.updatedAt || nowIso() };
+  for (const c of TABLE_COLS[table]) out[c] = r[c] == null ? '' : String(r[c]);
+  return out;
+}
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) || {};
+      const data = { topic: [], hot: [], task: [], content: [], ip: [], pub: [], stat: [] };
+      for (const t of TABLES) {
+        const seen = new Set();
+        (Array.isArray(p.data && p.data[t]) ? p.data[t] : []).forEach((r) => {
+          const row = normalizeRow(t, r);
+          if (row && !seen.has(row.rid)) { seen.add(row.rid); data[t].push(row); }
+        });
+      }
+      S.data = data;
+      S.meta = Object.assign(S.meta, p.meta || {});
+      S.dirty = Array.isArray(p.dirty) ? p.dirty.filter((d) => TABLES.includes(d.table) && d.rid) : [];
+    }
+    const sr = localStorage.getItem(SETTINGS_KEY);
+    if (sr) S.settings = Object.assign({ ...defaultSettings }, JSON.parse(sr) || {});
+  } catch (e) {
+    console.warn('本地数据读取失败，使用空数据', e);
+  }
+}
+function saveLocal() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ data: S.data, meta: S.meta, dirty: S.dirty }));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(S.settings));
+  } catch (e) {
+    console.warn('本地存储写入失败', e);
+  }
+  publishShellSummary();
+}
+function markDirty(table, rid, updatedAt, deleted, user) {
+  S.dirty = S.dirty.filter((d) => !(d.table === table && d.rid === rid));
+  S.dirty.push({ table, rid, updatedAt, deleted: !!deleted });
+  if (user) S.meta.userTouched = true;
+  saveLocal();
+}
+function clearDirty(table, rid, sinceIso) {
+  S.dirty = S.dirty.filter((d) => !(d.table === table && d.rid === rid && (!sinceIso || d.updatedAt === sinceIso)));
+}
+function findRow(table, rid) { return (S.data[table] || []).find((r) => r.rid === rid); }
+function upsertLocal(table, row, opts) {
+  const o = opts || {};
+  if (o.stamp !== false) row.updatedAt = nowIso();
+  const arr = S.data[table];
+  const i = arr.findIndex((r) => r.rid === row.rid);
+  if (i >= 0) arr[i] = Object.assign(arr[i], row);
+  else arr.push(row);
+  if (o.dirty !== false) markDirty(table, row.rid, row.updatedAt, false, o.user);
+  saveLocal();
+  return row;
+}
+function deleteLocal(table, rid, opts) {
+  const o = opts || {};
+  const row = findRow(table, rid);
+  S.data[table] = S.data[table].filter((r) => r.rid !== rid);
+  if (o.dirty !== false) markDirty(table, rid, nowIso(), true, o.user !== false);
+  saveLocal();
+  return row;
+}
+
+function todayHot() {
+  const k = todayKey();
+  return S.data.hot.filter((h) => (h.fetched_at || '').slice(0, 10) === k);
+}
+function activeTasks() {
+  return S.data.task.filter((t) => t.status === 'queued' || t.status === 'running');
+}
+function reviewContents() {
+  return S.data.content.filter((c) => c.status === 'review');
+}
+function approvedContents() {
+  return S.data.content.filter((c) => c.status === 'approved' || c.status === 'published');
+}
+function pubRecords() {
+  return S.data.pub.filter((p) => p.status === 'published').sort((a, b) => (b.published_at || '').localeCompare(a.published_at || ''));
+}
+
+/* 给卜卜小屋主壳的只读摘要：主壳看板/周报/月报/计划日历不必理解 7 张表的细节，
+   只消费发布记录、在制任务与待把关成品。写入独立 key，避免污染主壳的 13 表状态。 */
+const SHELL_PLATFORM = { '公众号': '公众号', '小红书': '小红书', '抖音': '抖音官方号', '视频号': '视频号' };
+const SHELL_LINE_PLATFORM = { long: '公众号', short: '小红书', voiceover: '视频号', drama: '抖音官方号' };
+let _shellSummaryJson = '';
+function publishShellSummary() {
+  try {
+    if (!S || !S.data) return;
+    const items = [];
+    pubRecords().forEach((p) => {
+      const c = findRow('content', p.content_id);
+      const pub = (p.published_at || '').slice(0, 10);
+      if (!pub) return;
+      items.push({
+        id: 'nm|pub|' + p.rid,
+        title: c ? c.title : '已发布内容',
+        plat: SHELL_PLATFORM[p.platform] || p.platform,
+        pub,
+        stage: '已发布',
+        demo: false,
+      });
+    });
+    S.data.task.filter((t) => t.status === 'queued' || t.status === 'running').forEach((t) => {
+      const topic = findRow('topic', t.topic_id);
+      items.push({
+        id: 'nm|task|' + t.rid,
+        title: topic ? topic.title : '制作中的内容',
+        plat: SHELL_LINE_PLATFORM[t.line] || '小红书',
+        pub: '',
+        stage: t.status === 'running' ? '制作中' : '待采用',
+        demo: false,
+      });
+    });
+    S.data.content.filter((c) => c.status === 'review' || c.status === 'approved').forEach((c) => {
+      items.push({
+        id: 'nm|content|' + c.rid,
+        title: c.title,
+        plat: SHELL_LINE_PLATFORM[c.line] || '小红书',
+        pub: '',
+        stage: '制作中',
+        demo: false,
+      });
+    });
+    const json = JSON.stringify({ ready: true, updatedAt: nowIso(), items });
+    if (json === _shellSummaryJson) return;
+    _shellSummaryJson = json;
+    localStorage.setItem(SHELL_SUMMARY_KEY, json);
+  } catch (e) { /* 摘要只是主壳的可选桥接，失败不影响本页 */ }
+}
+function streakDays() {
+  const days = new Set(pubRecords().map((p) => (p.published_at || '').slice(0, 10)).filter(Boolean));
+  const d = new Date();
+  if (!days.has(dayKey(d))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (days.has(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function ipLocked(ip) {
+  if (!ip) return false;
+  return activeTasks().some((t) => t.ip_id === ip.rid) || reviewContents().some((c) => c.ip_id === ip.rid);
+}
+function lineTaskCount(line) {
+  return S.data.task.filter((t) => t.line === line);
+}
+function latestStat(contentId) {
+  const rows = S.data.stat.filter((s) => s.content_id === contentId).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  return rows.length ? rows[rows.length - 1] : null;
+}
+function statTotals() {
+  const totals = { views: 0, likes: 0, comments: 0, shares: 0, favorites: 0 };
+  S.data.content.filter((c) => c.status === 'published').forEach((c) => {
+    const s = latestStat(c.rid);
+    if (!s) return;
+    for (const k of Object.keys(totals)) totals[k] += num(s[k]);
+  });
+  return totals;
+}
+
+function renderBody(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return '<p class="muted">（正文为空）</p>';
+  const blocks = raw.split(/\n{2,}/);
+  return blocks.map((block) => {
+    const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) return '';
+    const out = [];
+    let buf = [];
+    const flush = () => {
+      if (!buf.length) return;
+      const joined = buf.join('<br>');
+      out.push(`<p${block.startsWith('【') && buf.length === 1 ? ' class="lead"' : ''}>${joined}</p>`);
+      buf = [];
+    };
+    for (const line of lines) {
+      if (/^##\s+/.test(line)) { flush(); out.push(`<h2>${esc(line.replace(/^##\s+/, ''))}</h2>`); }
+      else if (/^【.+】$/.test(line)) { flush(); out.push(`<p class="lead">${esc(line)}</p>`); }
+      else buf.push(esc(line));
+    }
+    flush();
+    return out.join('');
+  }).join('');
+}
+
+/* ---------------- 演示数据 ---------------- */
+const HOT_BANK = [
+  ['AI 一天能替我做完多少事？实测 7 个场景', 'B站热搜', 3280000],
+  ['打工人早餐观察：5 分钟也能有仪式感', '小红书热榜', 2140000],
+  ['为什么越努力越焦虑', '微博热搜', 4860000],
+  ['年轻人开始反向消费', '抖音热点', 6920000],
+  ['一人公司正在成为新常态', '公众号热文', 1580000],
+  ['秋天的第一杯奶茶又来了', '小红书热榜', 5310000],
+  ['通勤一小时能做什么', 'B站热搜', 980000],
+  ['微短剧为什么让人停不下来', '抖音热点', 4020000],
+  ['把 AI 当同事的第 30 天', '知乎热榜', 1860000],
+  ['内容创作者的注意力税', '公众号热文', 760000],
+  ['年轻人开始给简历做减法', '微博热搜', 2460000],
+  ['小城市咖啡馆的生意经', '小红书热榜', 1120000],
+  ['第一批用 AI 做副业的人怎么样了', 'B站热搜', 3750000],
+  ['为什么现在的歌越来越短', '抖音热点', 2890000],
+  ['独居青年的冰箱里有什么', '小红书热榜', 1680000],
+  ['大厂离职后我去摆了摊', '公众号热文', 2240000],
+  ['早起的人真的更自律吗', '知乎热榜', 1360000],
+  ['品牌联名为什么越来越难出圈', '公众号热文', 940000],
+  ['00 后开始整顿婚礼', '微博热搜', 4120000],
+  ['打工人开始流行午休散步', '小红书热榜', 1880000],
+  ['AI 生成的图能商用吗', '知乎热榜', 2010000],
+  ['一个人吃饭的仪式感', '抖音热点', 2560000],
+  ['通勤穿搭的三个偷懒公式', '小红书热榜', 1730000],
+  ['为什么大家都在重看老剧', 'B站热搜', 3070000],
+  ['副业做成主业的第 100 天', '公众号热文', 1450000],
+  ['年轻人开始囤情绪价值', '微博热搜', 3380000],
+  ['手机相册里的年度总结', '抖音热点', 1950000],
+  ['我为什么关掉了所有推送', '知乎热榜', 1230000],
+  ['小团队如何做出一档播客', 'B站热搜', 870000],
+  ['咖啡价格战打到几时', '公众号热文', 2680000],
+  ['下班后的两小时决定什么', '小红书热榜', 1540000],
+  ['微短剧演员的真实收入', '抖音热点', 3620000],
+  ['内容创作者的选题焦虑', '知乎热榜', 1090000],
+  ['把家改造成工作室', '小红书热榜', 1420000],
+  ['AI 玩具开始进入家庭', '微博热搜', 2280000],
+  ['年轻人开始反向旅游', '抖音热点', 3910000],
+  ['播客为什么又火了', 'B站热搜', 1180000],
+  ['一人食的快乐经济学', '公众号热文', 1010000],
+  ['那些坚持写日记的人', '知乎热榜', 690000],
+  ['品牌开始讲慢故事', '公众号热文', 830000],
+];
+
+const SEED_BODIES = {
+  c1: `【开场】
+你有没有发现，越努力，越焦虑。
+不是你不够自律，是注意力正在被收税。
+
+【第一笔税｜随时在线】
+消息提示音一响，手就先于大脑动了。一次打断平均要 23 分钟才能回到原来的状态。你以为自己在 multitask，其实是在反复重新加载。
+
+【第二笔税｜无限刷新】
+刷到一个有用信息，顺手再刷十条。十分钟过去，记住了什么？大多是一阵模糊的兴奋，和更空的心。
+
+【第三笔税｜拿别人的高光当日常】
+你看到的是别人剪好的三十秒，却拿它对照自己没剪过的二十四小时。比较一旦开始，努力就变成了自我惩罚。
+
+【结尾】
+今天试着关掉一个通知，把省下的十分钟还给自己。
+你最近被哪一笔注意力税困住了？评论区聊聊。
+
+【成片信息单】
+时长：约 60 秒｜分辨率：1080×1920（9:16 竖屏）｜目标平台：视频号`,
+  c2: `《加班申请》｜6 镜 · 约 60 秒
+
+第 1 镜｜办公室 · 日 · 内
+老板拍着桌子：年轻人要多吃苦。
+主角点头，从包里抽出一张纸。
+
+第 2 镜｜特写
+纸上四个大字：加班申请。
+
+第 3 镜｜办公室 · 日 · 内
+老板愣住：你这是什么意思？
+主角：您不是让我多吃苦吗？我申请制度化地吃。
+
+第 4 镜｜老板视角
+镜头缓慢推近，老板端起保温杯，又放下。
+
+第 5 镜｜走廊 · 日 · 内
+同事探头，小声问：批了吗？
+主角晃了晃纸：批了，按小时算。
+
+第 6 镜｜字幕收尾
+吃苦可以，白吃不行。
+（画面定格，音效：印章落下）
+
+【成片信息单】
+时长：约 60 秒｜分辨率：1080×1920（9:16 竖屏）｜目标平台：抖音`,
+  c3: `导语
+把 AI 当同事用了 30 天，我最大的变化不是写得快了，而是终于敢把力气花在判断上。
+
+## 01 先让它做“笨功夫”
+选题资料、竞品拆解、标题备选，这些过去要磨一下午的事，现在十分钟能拿到第一版。第一版不重要，重要的是我不再从空白页开始。
+
+## 02 真正的分水岭是追问
+同一个工具，有人用出模板腔，有人用出个人味。差别不在提示词多长，而在你知不知道自己不要什么。我的习惯是每次生成后只问一句：这句话像我会说的吗？
+
+## 03 它替我腾出的时间去了哪
+不是用来接更多活，而是用来读一篇长文、走一段路、把一个问题想透。内容的质量，最后还是由输入和判断决定。
+
+## 04 三条可复制的习惯
+一，把 AI 当实习生，不当替身；二，所有初稿都要过一遍自己的嘴；三，每周留半天完全不生成，只观察。
+
+结语
+工具会继续变，但一个人的审美和判断不会自动升级。把 AI 当同事的第 30 天，我更喜欢自己写下的那几句话。`,
+  c4: `秋天的第一杯奶茶，今年卷到了配料表。
+
+过去比谁更甜，现在比谁更“轻”：零卡糖、鲜奶、真茶底，杯套上还要印一行热量。品牌们终于发现，年轻人不是不喝奶茶，是不想为一口甜背负太多。
+
+更有意思的是场景。下午三点的办公室拼单、健身房门口的补给站、深夜便利店的迷你杯——同一杯奶茶，被拆成了不同时刻的情绪解决方案。
+
+所以今年真正的卖点，可能不是“第一杯”，而是“这一杯刚好懂你”。
+
+#奶茶观察 #品牌营销 #消费趋势`,
+  c5: `【开场】
+通勤的一小时，别只用来刷手机。今天给你三档播客，按心情选。
+
+【想清醒一点】
+选一档商业访谈。听一个陌生人怎么拆问题，比听十条鸡汤有用。注意听他的追问，那才是思考发生的地方。
+
+【想松弛一点】
+选一档生活闲聊。不用记笔记，让声音陪你走过两站地铁。好的闲聊像窗户，推开一点风就进来了。
+
+【想被推一把】
+选一档人物故事。听别人怎么熬过一段难走的路，你会发现自己并没有那么孤单。
+
+【结尾】
+播客不是背景音，是通勤路上的另一间房间。你今天想进哪一间？
+
+【成片信息单】
+时长：约 60 秒｜分辨率：1080×1920（9:16 竖屏）｜目标平台：视频号`,
+  c6: `连续更新 21 天，没有想象中那么燃，更多是笨办法。
+
+## 01 把“更新”拆小
+不要每天问自己“今天写什么大作”，只问“今天能交付哪一个最小单位”。一条 200 字笔记、一段 60 秒口播，都算数。
+
+## 02 建一个随时能开工的池子
+选题池里永远保留 10 个待做项，每个都写到“可以直接开工”的程度。没有灵感的时候，不靠灵感，靠清单。
+
+## 03 允许自己有 60 分的日子
+第 7 天和第 14 天最容易断。我的办法是提前准备两条“保底内容”，状态不好时直接发，不让节奏断掉。
+
+## 04 用一个可见的记录
+发布记录比打卡软件有用。看着连续的天数往上走，会产生一种很朴素的舍不得。
+
+结语
+连续更新不是自律表演，是给自己搭一条能一直走下去的路。21 天之后，我留下的不是数字，是一套能重复的工作方式。`,
+};
+
+function ensureSeed() {
+  if (S.data.topic.length || S.data.content.length || S.data.task.length) {
+    S.meta.seededAt = S.meta.seededAt || nowIso();
+    return false;
+  }
+  const mk = (table, rid, fields, updatedAt) => normalizeRow(table, Object.assign({ rid, updatedAt: updatedAt || nowIso() }, fields));
+  const ipRows = [
+    mk('ip', 'seed|ip|1', { name: '阿墨', persona: '冷静的长期主义者。圆框眼镜，语速慢半拍，习惯用数据和亲历故事说服人。', config: '圆框眼镜 / 灰衬衫 / 冷调纸感', status: 'idle', appearances: '4', created_at: isoAt(-40, 10, 0) }, isoAgo(86400000 * 3)),
+    mk('ip', 'seed|ip|2', { name: '小满', persona: '元气打工人。把苦日子讲成段子，擅长自嘲，结尾总会给出一个小办法。', config: '马尾 / 亮橙针织 / 手写体字幕', status: 'active', appearances: '7', created_at: isoAt(-36, 10, 0) }, isoAgo(86400000 * 3)),
+    mk('ip', 'seed|ip|3', { name: '老周', persona: '五十岁创业老兵。金句密度高，开口就是江湖经验，偶尔拆自己的台。', config: '银灰短发 / 深绿夹克 / 旧皮包', status: 'idle', appearances: '3', created_at: isoAt(-30, 10, 0) }, isoAgo(86400000 * 2)),
+  ];
+  const topicDefs = [
+    ['AI 一天能替我做完多少事？我实测了 7 个场景', 'long', '用时间账本串起 7 个场景，结尾给一份可复制清单', 'B站热搜', 'making', 0, 9, 10],
+    ['打工人的早餐，5 分钟也能有仪式感', 'short', '三个不用开火的组合，画面要干净', '小红书热榜', 'todo', 0, 8, 30],
+    ['为什么越努力越焦虑？聊聊注意力税', 'voiceover', '用三笔税的结构讲，结尾给一个小动作', '微博热搜', 'done', -1, 16, 20],
+    ['老板说“年轻人要多吃苦”，我反手递上加班申请', 'drama', '六镜反转，最后落在制度化吃苦', '抖音热点', 'done', -1, 14, 5],
+    ['小红书封面从 0 到 1：三个模板就够了', 'short', '模板拆解 + 前后对比图', '小红书热榜', 'todo', -1, 11, 0],
+    ['我把 AI 当同事用了 30 天，最惊喜的不是写作', 'long', '写判断力，不写工具清单', '公众号热文', 'done', -2, 20, 10],
+    ['通勤一小时能做什么？三档播客按心情选', 'voiceover', '按清醒 / 松弛 / 被推一把分类', 'B站热搜', 'done', -1, 18, 40],
+    ['一个人做内容，如何连续更新 21 天', 'long', '笨办法、保底内容、可见记录', '公众号热文', 'done', -3, 21, 0],
+    ['秋天的第一杯奶茶，品牌们又打起来了', 'short', '配料表、场景、情绪价值', '小红书热榜', 'done', 0, 9, 0],
+  ];
+  const topicRows = topicDefs.map((d, i) => mk('topic', `seed|topic|${i + 1}`, {
+    title: d[0], line: d[1], note: d[2], source: d[3], status: d[4], hot_id: '', created_at: isoAt(d[5], d[6], d[7]),
+  }, isoAgo(86400000 * (3 - Math.min(2, i)) + 60000 * i)));
+
+  const hotRows = HOT_BANK.slice(0, 10).map((h, i) => mk('hot', `seed|hot|${i + 1}`, {
+    title: h[0], platform: h[1], heat: String(h[2]), status: (i === 2 || i === 5) ? 'used' : 'new',
+    fetched_at: isoAgo(60000 * (14 + i * 4)),
+  }, isoAgo(60000 * (14 + i * 4))));
+
+  const contentRows = [
+    mk('content', 'seed|content|1', { title: '为什么越努力越焦虑？聊聊注意力税', line: 'voiceover', status: 'review', body: SEED_BODIES.c1, tags: JSON.stringify(['注意力', '情绪', '自我管理']), assets: JSON.stringify([{ kind: '口播稿', name: '口播稿 1 份' }, { kind: '封面', name: '封面 1080×1920' }]), review_note: '', prev_version_id: '', task_id: 'seed|task|3', topic_id: 'seed|topic|3', ip_id: 'seed|ip|2', version: '1', finished_at: isoAgo(7200000), approved_at: '' }, isoAgo(7200000)),
+    mk('content', 'seed|content|2', { title: '老板说“年轻人要多吃苦”，我反手递上加班申请', line: 'drama', status: 'approved', body: SEED_BODIES.c2, tags: JSON.stringify(['职场', '反转', '微短剧']), assets: JSON.stringify([{ kind: '分镜', name: '6 镜分镜表' }, { kind: '成片信息', name: '1080×1920 · 60s' }]), review_note: '', prev_version_id: '', task_id: 'seed|task|4', topic_id: 'seed|topic|4', ip_id: 'seed|ip|3', version: '1', finished_at: isoAgo(14400000), approved_at: isoAgo(3600000) }, isoAgo(3600000)),
+    mk('content', 'seed|content|3', { title: '我把 AI 当同事用了 30 天，最惊喜的不是写作', line: 'long', status: 'published', body: SEED_BODIES.c3, tags: JSON.stringify(['AI', '效率', '个人成长']), assets: JSON.stringify([{ kind: '封面', name: '封面 900×383' }, { kind: '配图', name: '配图 3 张' }]), review_note: '', prev_version_id: '', task_id: 'seed|task|5', topic_id: 'seed|topic|6', ip_id: 'seed|ip|1', version: '1', finished_at: isoAt(-1, 18, 10), approved_at: isoAt(-1, 19, 0) }, isoAt(-1, 19, 0)),
+    mk('content', 'seed|content|4', { title: '秋天的第一杯奶茶，品牌们又打起来了', line: 'short', status: 'published', body: SEED_BODIES.c4, tags: JSON.stringify(['品牌营销', '消费观察', '奶茶']), assets: JSON.stringify([{ kind: '封面', name: '封面 3:4' }, { kind: '配图', name: '配图 4 张' }]), review_note: '', prev_version_id: '', task_id: 'seed|task|6', topic_id: 'seed|topic|9', ip_id: 'seed|ip|3', version: '1', finished_at: isoAt(0, 7, 50), approved_at: isoAt(0, 8, 30) }, isoAt(0, 8, 30)),
+    mk('content', 'seed|content|5', { title: '通勤一小时能做什么？三档播客按心情选', line: 'voiceover', status: 'published', body: SEED_BODIES.c5, tags: JSON.stringify(['播客', '通勤', '生活方式']), assets: JSON.stringify([{ kind: '口播稿', name: '口播稿 1 份' }, { kind: '封面', name: '封面 1080×1920' }]), review_note: '', prev_version_id: '', task_id: 'seed|task|7', topic_id: 'seed|topic|7', ip_id: 'seed|ip|1', version: '1', finished_at: isoAt(-1, 17, 20), approved_at: isoAt(-1, 18, 0) }, isoAt(-1, 18, 0)),
+    mk('content', 'seed|content|6', { title: '一个人做内容，如何连续更新 21 天', line: 'long', status: 'published', body: SEED_BODIES.c6, tags: JSON.stringify(['创作方法', '连续更新', '一个人']), assets: JSON.stringify([{ kind: '封面', name: '封面 900×383' }, { kind: '配图', name: '配图 2 张' }]), review_note: '', prev_version_id: '', task_id: 'seed|task|8', topic_id: 'seed|topic|8', ip_id: 'seed|ip|1', version: '1', finished_at: isoAt(-2, 20, 10), approved_at: isoAt(-2, 20, 40) }, isoAt(-2, 20, 40)),
+  ];
+  const taskRows = [
+    mk('task', 'seed|task|1', { topic_id: 'seed|topic|1', line: 'long', status: 'running', stage: '文案生成', progress: '32', params: JSON.stringify({ durationMs: 26000, ipId: 'seed|ip|2', seed: true }), error: '', ip_id: 'seed|ip|2', content_id: '', started_at: isoAgo(9000), created_at: isoAgo(12000) }, isoAgo(9000)),
+    mk('task', 'seed|task|2', { topic_id: 'seed|topic|2', line: 'short', status: 'queued', stage: '排队中', progress: '0', params: JSON.stringify({ durationMs: 16000, ipId: 'seed|ip|2', seed: true }), error: '', ip_id: 'seed|ip|2', content_id: '', started_at: '', created_at: isoAgo(2000) }, isoAgo(2000)),
+    mk('task', 'seed|task|3', { topic_id: 'seed|topic|3', line: 'voiceover', status: 'review', stage: '已交付 · 待把关', progress: '100', params: JSON.stringify({ durationMs: 15000, ipId: 'seed|ip|2' }), error: '', ip_id: 'seed|ip|2', content_id: 'seed|content|1', started_at: isoAt(-1, 15, 40), created_at: isoAt(-1, 15, 30) }, isoAgo(7200000)),
+    mk('task', 'seed|task|4', { topic_id: 'seed|topic|4', line: 'drama', status: 'done', stage: '已通过', progress: '100', params: JSON.stringify({ durationMs: 18000, ipId: 'seed|ip|3' }), error: '', ip_id: 'seed|ip|3', content_id: 'seed|content|2', started_at: isoAt(-1, 13, 30), created_at: isoAt(-1, 13, 20) }, isoAgo(3600000)),
+    mk('task', 'seed|task|5', { topic_id: 'seed|topic|6', line: 'long', status: 'done', stage: '已交付', progress: '100', params: JSON.stringify({ durationMs: 20000, ipId: 'seed|ip|1' }), error: '', ip_id: 'seed|ip|1', content_id: 'seed|content|3', started_at: isoAt(-1, 17, 30), created_at: isoAt(-1, 17, 20) }, isoAt(-1, 19, 0)),
+    mk('task', 'seed|task|6', { topic_id: 'seed|topic|9', line: 'short', status: 'done', stage: '已交付', progress: '100', params: JSON.stringify({ durationMs: 16000, ipId: 'seed|ip|3' }), error: '', ip_id: 'seed|ip|3', content_id: 'seed|content|4', started_at: isoAt(0, 7, 20), created_at: isoAt(0, 7, 10) }, isoAt(0, 8, 30)),
+    mk('task', 'seed|task|7', { topic_id: 'seed|topic|7', line: 'voiceover', status: 'done', stage: '已交付', progress: '100', params: JSON.stringify({ durationMs: 15000, ipId: 'seed|ip|1' }), error: '', ip_id: 'seed|ip|1', content_id: 'seed|content|5', started_at: isoAt(-1, 16, 50), created_at: isoAt(-1, 16, 40) }, isoAt(-1, 18, 0)),
+    mk('task', 'seed|task|8', { topic_id: 'seed|topic|8', line: 'long', status: 'done', stage: '已交付', progress: '100', params: JSON.stringify({ durationMs: 20000, ipId: 'seed|ip|1' }), error: '', ip_id: 'seed|ip|1', content_id: 'seed|content|6', started_at: isoAt(-2, 19, 40), created_at: isoAt(-2, 19, 30) }, isoAt(-2, 20, 40)),
+  ];
+  const pubRows = [
+    mk('pub', 'seed|pub|1', { content_id: 'seed|content|3', platform: '公众号', method: '手动发布', status: 'published', published_at: isoAt(-1, 20, 30) }, isoAt(-1, 20, 30)),
+    mk('pub', 'seed|pub|2', { content_id: 'seed|content|3', platform: '小红书', method: '导出成品包', status: 'published', published_at: isoAt(-1, 20, 45) }, isoAt(-1, 20, 45)),
+    mk('pub', 'seed|pub|3', { content_id: 'seed|content|5', platform: '视频号', method: 'API 直发', status: 'published', published_at: isoAt(-1, 19, 0) }, isoAt(-1, 19, 0)),
+    mk('pub', 'seed|pub|4', { content_id: 'seed|content|6', platform: '公众号', method: '手动发布', status: 'published', published_at: isoAt(-2, 21, 0) }, isoAt(-2, 21, 0)),
+    mk('pub', 'seed|pub|5', { content_id: 'seed|content|4', platform: '小红书', method: '手动发布', status: 'published', published_at: isoAt(0, 9, 10) }, isoAt(0, 9, 10)),
+  ];
+  S.data.ip = ipRows;
+  S.data.topic = topicRows;
+  S.data.hot = hotRows;
+  S.data.content = contentRows;
+  S.data.task = taskRows;
+  S.data.pub = pubRows;
+  S.data.stat = [];
+  S.meta.seededAt = nowIso();
+  S.meta.demo = true;
+  S.meta.lastHotAt = '';
+  S.meta.hotSource = 'seed';
+  saveLocal();
+  return true;
+}
+
+/* ---------------- 联网热点 ----------------
+   取数顺序：Worker 抓 B站 + 百度 → 本机 spark_feed.js → 离线库存。
+   Worker 接口不需要登录，本地模式也能拿真热榜；整条链都失败时才退回模拟。 */
+const HOT_TTL_MS = 3600000;
+const HOT_SOURCE_LABEL = {
+  live: '联网 · B站 / 百度',
+  spark: '本机抓取 · spark_feed',
+  offline: '离线库存',
+  seed: '演示数据',
+};
+let hotBusy = false;
+let sparkFeedLoading = null;
+
+function hotSourceLabel() {
+  return HOT_SOURCE_LABEL[S.meta.hotSource] || HOT_SOURCE_LABEL.offline;
+}
+function hotKey(title) {
+  return String(title || '').replace(/\s+/g, '').toLowerCase();
+}
+
+function mergeHotItems(items, mode) {
+  /* 第一次拿到真实热榜时清掉种子里的演示热点，免得假条目混在真榜单里。 */
+  if (S.meta.hotSource !== 'live' && S.meta.hotSource !== 'spark') {
+    S.data.hot.filter((h) => h.rid.startsWith('seed|hot|'))
+      .forEach((h) => deleteLocal('hot', h.rid, { user: false }));
+  }
+  const byTitle = new Map();
+  S.data.hot.forEach((h) => byTitle.set(hotKey(h.title), h));
+  const now = nowIso();
+  let added = 0;
+  let updated = 0;
+  const fresh = [];
+  for (const item of items) {
+    const title = String((item && item.title) || '').replace(/\s+/g, ' ').trim();
+    if (!title) continue;
+    const heat = Math.max(0, Math.round(num(item.heat)));
+    const key = hotKey(title);
+    const old = byTitle.get(key);
+    if (old) {
+      if (heat > num(old.heat)) { old.heat = String(heat); updated += 1; }
+      old.fetched_at = now;
+      old.updatedAt = now;
+      markDirty('hot', old.rid, now, false);
+      continue;
+    }
+    fresh.push({ title, key, heat, platform: String((item && item.platform) || '').trim() || (mode === 'spark' ? '本机抓取' : '热搜') });
+  }
+  /* 百度热度数值远高于 B 站，若直接按全局热度截断，新增名额会被百度整锅端走。
+     每个来源先各给 6 个新增名额。 */
+  const quota = new Map();
+  for (const item of fresh) {
+    const n = quota.get(item.platform) || 0;
+    if (n >= 6 || added >= 12) continue;
+    const rid = `hot|${mode}|${hashStr(item.key).toString(36)}`;
+    if (findRow('hot', rid)) continue;
+    const row = normalizeRow('hot', {
+      rid,
+      updatedAt: now,
+      title: item.title,
+      platform: item.platform,
+      heat: String(item.heat),
+      status: 'new',
+      fetched_at: now,
+    });
+    S.data.hot.push(row);
+    markDirty('hot', rid, now, false);
+    byTitle.set(item.key, row);
+    quota.set(item.platform, n + 1);
+    added += 1;
+  }
+  return { added, updated };
+}
+
+function replenishHotFromBank() {
+  const existing = new Set(S.data.hot.map((h) => h.title));
+  const hourKey = dayKey(new Date()) + pad2(new Date().getHours());
+  const picked = [];
+  for (const item of HOT_BANK) {
+    if (picked.length >= 6) break;
+    if (existing.has(item[0])) continue;
+    picked.push(item);
+  }
+  if (!picked.length) {
+    const d = new Date();
+    const stamp = `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    const alt = HOT_BANK
+      .map((x) => [x[0] + `｜${stamp} 进展`, x[1], Math.round(x[2] * 1.08)])
+      .filter((x) => !existing.has(x[0]));
+    for (const item of alt) { if (picked.length >= 6) break; picked.push(item); }
+  }
+  const rnd = seeded(hashStr(hourKey + Date.now()));
+  let added = 0;
+  picked.forEach((item, i) => {
+    const rid = `hot|${hourKey}|${i + 1}`;
+    if (findRow('hot', rid)) return;
+    S.data.hot.push(normalizeRow('hot', {
+      rid,
+      updatedAt: nowIso(),
+      title: item[0],
+      platform: item[1],
+      heat: String(item[2] + Math.floor(rnd() * 180000)),
+      status: 'new',
+      fetched_at: nowIso(),
+    }));
+    markDirty('hot', rid, nowIso(), false);
+    added += 1;
+  });
+  return { added, updated: 0 };
+}
+
+function loadSparkFeed() {
+  if (window.SPARK_FEED && Array.isArray(window.SPARK_FEED.topics)) {
+    return Promise.resolve(window.SPARK_FEED);
+  }
+  if (sparkFeedLoading) return sparkFeedLoading;
+  sparkFeedLoading = new Promise((resolve, reject) => {
+    const urls = ['spark_feed.js', '../淘金矿工小屋/spark_feed.js'];
+    let i = 0;
+    const tryNext = () => {
+      if (i >= urls.length) { reject(new Error('spark_feed_unavailable')); return; }
+      const s = document.createElement('script');
+      s.src = urls[i++];
+      s.async = true;
+      s.onload = () => {
+        if (window.SPARK_FEED && Array.isArray(window.SPARK_FEED.topics)) resolve(window.SPARK_FEED);
+        else { s.remove(); tryNext(); }
+      };
+      s.onerror = () => { s.remove(); tryNext(); };
+      document.head.appendChild(s);
+    };
+    tryNext();
+  });
+  return sparkFeedLoading;
+}
+
+async function fetchSparkHot() {
+  const feed = await loadSparkFeed();
+  const topics = (Array.isArray(feed.topics) ? feed.topics : [])
+    .map((t) => ({
+      title: String((t && (t['选题标题'] || t.title)) || '').replace(/\s+/g, ' ').trim(),
+      platform: String((t && (t['热点来源'] || t.source)) || '热榜').replace(/\s*#\d+\s*$/, '').trim() || '热榜',
+      heat: num(t && (t['热度'] != null ? t['热度'] : t.heat)),
+      day: Date.parse((t && (t['日期'] || t.date)) || '') || 0,
+    }))
+    .filter((x) => x.title);
+  if (!topics.length) throw new Error('spark_feed_empty');
+  const newest = topics.reduce((max, t) => Math.max(max, t.day), 0);
+  const cutoff = newest - 2 * 86400000;
+  const items = topics.filter((t) => t.day >= cutoff).sort((a, b) => b.heat - a.heat).slice(0, 32);
+  if (!items.length) throw new Error('spark_feed_empty');
+  return items;
+}
+
+async function fetchHotFromWorker() {
+  const data = await apiFetch('/api/nm/hot/live');
+  if (!data || !Array.isArray(data.items) || !data.items.length) throw new Error('hot_live_empty');
+  return data.items;
+}
+
+async function refreshHot(force) {
+  if (hotBusy) return { skipped: true, busy: true };
+  const last = Date.parse(S.meta.lastHotAt || 0);
+  const triedBefore = ['live', 'spark', 'offline'].includes(S.meta.hotSource);
+  if (!force && triedBefore && last && Date.now() - last < HOT_TTL_MS) return { skipped: true };
+  hotBusy = true;
+  const errors = [];
+  try {
+    let mode = 'live';
+    let items = [];
+    try {
+      items = await fetchHotFromWorker();
+    } catch (e) {
+      errors.push('live:' + (e.code || e.message));
+      try {
+        items = await fetchSparkHot();
+        mode = 'spark';
+      } catch (e2) {
+        errors.push('spark:' + (e2.code || e2.message));
+        mode = 'offline';
+      }
+    }
+    let stats;
+    if (mode === 'offline') {
+      const hasReal = S.data.hot.some((h) => h.rid.startsWith('hot|live|') || h.rid.startsWith('hot|spark|'));
+      stats = hasReal ? { added: 0, updated: 0 } : replenishHotFromBank();
+    } else {
+      stats = mergeHotItems(items, mode);
+    }
+    const now = nowIso();
+    S.meta.lastHotAt = now;
+    S.meta.hotSource = mode;
+    S.meta.hotError = errors.join(' ');
+    const cutoff = Date.now() - 86400000 * 7;
+    S.data.hot.filter((h) => Date.parse(h.fetched_at || 0) < cutoff).forEach((h) => deleteLocal('hot', h.rid, { user: false }));
+    saveLocal();
+    return { ...stats, mode, error: S.meta.hotError };
+  } finally {
+    hotBusy = false;
+  }
+}
+
+function ensureHot() {
+  const last = Date.parse(S.meta.lastHotAt || 0);
+  const triedBefore = ['live', 'spark', 'offline'].includes(S.meta.hotSource);
+  if (triedBefore && last && Date.now() - last < HOT_TTL_MS) return false;
+  refreshHot(false).then((res) => {
+    if (!res || res.skipped) return;
+    render();
+  }).catch(() => {});
+  return false;
+}
+
+function ensureStats() {
+  let changed = false;
+  const published = S.data.content.filter((c) => c.status === 'published');
+  for (const c of published) {
+    const pubs = pubRecords().filter((p) => p.content_id === c.rid);
+    if (!pubs.length) continue;
+    const first = pubs.map((p) => Date.parse(p.published_at)).filter(Number.isFinite).sort()[0];
+    if (!first) continue;
+    const start = new Date(first);
+    start.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const days = Math.min(14, Math.floor((today - start) / 86400000));
+    for (let d = 0; d <= days; d++) {
+      const day = new Date(start); day.setDate(day.getDate() + d);
+      const key = dayKey(day);
+      const rid = `stat|${c.rid}|${key}`;
+      if (findRow('stat', rid)) continue;
+      const rnd = seeded(hashStr(c.rid + key));
+      const base = 900 + Math.floor(rnd() * 5200);
+      const views = Math.round(base * (1 + d * 0.58) * (c.line === 'long' ? 1.28 : c.line === 'short' ? 1.1 : 1.38));
+      const likes = Math.round(views * (0.032 + rnd() * 0.045));
+      const comments = Math.round(views * (0.004 + rnd() * 0.012));
+      const shares = Math.round(views * (0.006 + rnd() * 0.018));
+      const favorites = Math.round(views * (0.012 + rnd() * 0.03));
+      S.data.stat.push(normalizeRow('stat', {
+        rid, updatedAt: nowIso(), content_id: c.rid, date: key,
+        views: String(views), likes: String(likes), comments: String(comments), shares: String(shares), favorites: String(favorites),
+      }));
+      markDirty('stat', rid, nowIso(), false);
+      changed = true;
+    }
+  }
+  if (changed) saveLocal();
+  return changed;
+}
+
+/* ---------------- 在线存储 / 双向同步 ---------------- */
+const AUTH_ERRORS = {
+  invalid_username: '用户名需 3–32 位，字母、数字或下划线',
+  invalid_password: '密码至少 8 位',
+  invite_required: '请填写邀请码',
+  invite_invalid: '邀请码无效或已被使用',
+  username_taken: '这个用户名已被占用',
+  invalid_credentials: '用户名或密码不正确',
+  login_required: '请先登录',
+  network: '网络不可用，本地数据已保留',
+};
+
+function apiOrigin() {
+  const q = new URLSearchParams(location.search).get('api');
+  if (q) return q.replace(/\/+$/, '');
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    const h = location.hostname;
+    if (h === 'localhost' || h === '127.0.0.1' || h.endsWith('.workers.dev')) return location.origin;
+  }
+  return WORKER_ORIGIN;
+}
+
+async function apiFetch(path, opts) {
+  const o = opts || {};
+  const method = o.method || 'GET';
+  const headers = {};
+  if (S.settings.token) headers.authorization = 'Bearer ' + S.settings.token;
+  if (o.body !== undefined) headers['content-type'] = 'application/json';
+  let sameOrigin = false;
+  try {
+    sameOrigin = (location.protocol === 'http:' || location.protocol === 'https:') && new URL(apiOrigin()).origin === location.origin;
+  } catch { sameOrigin = false; }
+  let res;
+  try {
+    res = await fetch(apiOrigin() + path, {
+      method,
+      headers,
+      body: o.body === undefined ? undefined : JSON.stringify(o.body),
+      credentials: sameOrigin ? 'include' : 'omit',
+      cache: 'no-store',
+    });
+  } catch (e) {
+    const err = new Error('network');
+    err.code = 'network';
+    throw err;
+  }
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  if (!res.ok) {
+    const err = new Error((data && data.error) || ('http_' + res.status));
+    err.status = res.status;
+    err.code = (data && data.error) || '';
+    throw err;
+  }
+  return data;
+}
+
+function cloudLabel() {
+  const u = S.cloud.user;
+  return u ? (u.nickname || u.username || '已登录') : '';
+}
+
+function syncStateText() {
+  if (S.cloud.status === 'syncing') return '同步中';
+  if (S.cloud.status === 'online') return '已同步';
+  if (S.cloud.status === 'offline') return '离线';
+  if (S.cloud.status === 'checking') return '连接中';
+  return '本地';
+}
+
+function updateSyncUI() {
+  const st = S.cloud.status;
+  const card = document.getElementById('syncCard');
+  const title = document.getElementById('syncCardTitle');
+  const sub = document.getElementById('syncCardSub');
+  const pill = document.getElementById('syncPill');
+  const pillText = document.getElementById('syncPillText');
+  if (!card) return;
+  card.classList.remove('online', 'syncing', 'offline');
+  if (st === 'online') card.classList.add('online');
+  if (st === 'syncing' || st === 'checking') card.classList.add('syncing');
+  if (st === 'offline') card.classList.add('offline');
+  if (pill) {
+    pill.classList.remove('online', 'syncing', 'offline');
+    if (st === 'online') pill.classList.add('online');
+    if (st === 'syncing' || st === 'checking') pill.classList.add('syncing');
+    if (st === 'offline') pill.classList.add('offline');
+  }
+  if (title) {
+    title.textContent = st === 'online' ? '云同步 · 已连接' : st === 'syncing' ? '同步中…' : st === 'checking' ? '正在连接…' : st === 'offline' ? '云端离线' : '本地模式';
+  }
+  if (sub) {
+    if (st === 'online') sub.textContent = `@${cloudLabel()} · 上次 ${S.meta.lastSync ? hm(S.meta.lastSync) : hm(S.cloud.lastAt || nowIso())}`;
+    else if (st === 'syncing') sub.textContent = '正在推送本地改动，请稍候';
+    else if (st === 'checking') sub.textContent = '正在读取云端快照';
+    else if (st === 'offline') sub.textContent = '数据已保存在本机，点击重试';
+    else sub.textContent = S.settings.token ? '会话已过期，点击重新登录' : '点击登录，开启云端双向同步';
+  }
+  if (pillText) pillText.textContent = syncStateText();
+}
+
+function mergeRemoteRow(table, raw) {
+  const row = normalizeRow(table, raw);
+  if (!row) return false;
+  const pendingDelete = S.dirty.find((d) => d.table === table && d.rid === row.rid && d.deleted);
+  if (pendingDelete && pendingDelete.updatedAt >= row.updatedAt) return false;
+  const local = findRow(table, row.rid);
+  if (!local) {
+    S.data[table].push(row);
+    return true;
+  }
+  if (row.updatedAt > local.updatedAt) {
+    const i = S.data[table].findIndex((r) => r.rid === row.rid);
+    S.data[table][i] = row;
+    clearDirty(table, row.rid);
+    return true;
+  }
+  if (local.updatedAt > row.updatedAt) {
+    if (!S.dirty.some((d) => d.table === table && d.rid === row.rid)) markDirty(table, row.rid, local.updatedAt, false);
+    return false;
+  }
+  return false;
+}
+
+function applyTomb(tomb) {
+  if (!tomb || !TABLES.includes(tomb.table)) return false;
+  const local = findRow(tomb.table, tomb.rid);
+  if (!local) { clearDirty(tomb.table, tomb.rid); return false; }
+  if ((local.updatedAt || '') <= (tomb.updatedAt || '')) {
+    S.data[tomb.table] = S.data[tomb.table].filter((r) => r.rid !== tomb.rid);
+    clearDirty(tomb.table, tomb.rid);
+    return true;
+  }
+  if (!S.dirty.some((d) => d.table === tomb.table && d.rid === tomb.rid)) markDirty(tomb.table, tomb.rid, local.updatedAt, false);
+  return false;
+}
+
+function mergeRemotePayload(payload) {
+  let changed = false;
+  const rows = payload.rows || {};
+  const serverCount = TABLES.reduce((n, t) => n + (Array.isArray(rows[t]) ? rows[t].length : 0), 0);
+  if (serverCount > 0 && S.meta.demo && !S.meta.userTouched) {
+    TABLES.forEach((t) => { S.data[t] = []; });
+    S.dirty = [];
+    S.meta.demo = false;
+    changed = true;
+  }
+  for (const t of TABLES) {
+    for (const r of (rows[t] || [])) {
+      if (mergeRemoteRow(t, r)) changed = true;
+    }
+  }
+  for (const tomb of (payload.tombs || [])) {
+    if (applyTomb(tomb)) changed = true;
+  }
+  if (payload.serverTime) S.meta.lastSync = payload.serverTime;
+  saveLocal();
+  return changed;
+}
+
+function dirtyChanges() {
+  const changes = [];
+  for (const d of S.dirty) {
+    const row = findRow(d.table, d.rid);
+    if (d.deleted || !row) {
+      changes.push({ table: d.table, rid: d.rid, updatedAt: d.updatedAt, deleted: true });
+      continue;
+    }
+    const data = {};
+    for (const c of TABLE_COLS[d.table]) data[c] = row[c] == null ? '' : row[c];
+    changes.push({ table: d.table, rid: d.rid, updatedAt: d.updatedAt, data });
+  }
+  return changes;
+}
+
+async function pushDirty() {
+  if (!S.dirty.length) return 0;
+  const changes = dirtyChanges();
+  const sent = new Map();
+  changes.forEach((c) => sent.set(c.table + '|' + c.rid, c.updatedAt));
+  for (let i = 0; i < changes.length; i += 80) {
+    const chunk = changes.slice(i, i + 80);
+    const res = await apiFetch('/api/nm/push', { method: 'POST', body: { changes: chunk } });
+    for (const a of (res.applied || [])) {
+      const key = a.table + '|' + a.rid;
+      clearDirty(a.table, a.rid, sent.get(key));
+      if (a.status === 'conflict' && a.row) mergeRemoteRow(a.table, a.row);
+    }
+    saveLocal();
+  }
+  return changes.length;
+}
+
+async function uploadAll() {
+  const changes = [];
+  for (const t of TABLES) {
+    for (const row of S.data[t]) {
+      const data = {};
+      for (const c of TABLE_COLS[t]) data[c] = row[c] == null ? '' : row[c];
+      changes.push({ table: t, rid: row.rid, updatedAt: row.updatedAt || nowIso(), data });
+    }
+  }
+  for (let i = 0; i < changes.length; i += 80) {
+    await apiFetch('/api/nm/push', { method: 'POST', body: { changes: changes.slice(i, i + 80) } });
+  }
+  S.dirty = [];
+  S.meta.demo = false;
+  saveLocal();
+  return changes.length;
+}
+
+async function connectCloud(opts) {
+  const o = opts || {};
+  if (!S.cloud.user && !S.settings.token) return false;
+  if (S.cloud.busy) return false;
+  S.cloud.busy = true;
+  S.cloud.status = 'syncing';
+  updateSyncUI();
+  try {
+    const snap = await apiFetch('/api/nm/snapshot');
+    const serverCount = TABLES.reduce((n, t) => n + ((snap.rows && snap.rows[t] && snap.rows[t].length) || 0), 0);
+    mergeRemotePayload(snap);
+    S.cloud.user = S.cloud.user || { username: '已登录' };
+    if (serverCount === 0) {
+      const localCount = TABLES.reduce((n, t) => n + S.data[t].length, 0);
+      if (localCount) await uploadAll();
+    }
+    ensureStats();
+    ensureHot();
+    await pushDirty();
+    S.cloud.status = 'online';
+    S.cloud.error = '';
+    S.cloud.lastAt = nowIso();
+    S.meta.demo = false;
+    saveLocal();
+    if (!o.silent) toast('云同步已连接，数据已对齐', 'ok');
+    return true;
+  } catch (e) {
+    if (e.status === 401) {
+      S.cloud.user = null;
+      S.cloud.status = 'local';
+      if (o.notify) toast('登录已过期，请重新登录', 'warn');
+    } else {
+      S.cloud.status = 'offline';
+      S.cloud.error = e.code || e.message;
+      if (!o.silent) toast('连不上云端，本地数据不受影响', 'warn');
+    }
+    return false;
+  } finally {
+    S.cloud.busy = false;
+    updateSyncUI();
+    render();
+  }
+}
+
+async function syncNow(opts) {
+  const o = opts || {};
+  if (!S.cloud.user && !S.settings.token) {
+    if (!o.silent) openAccountModal();
+    return;
+  }
+  if (S.cloud.busy) return;
+  S.cloud.busy = true;
+  S.cloud.status = 'syncing';
+  updateSyncUI();
+  let changed = false;
+  try {
+    if (!S.cloud.user) {
+      const me = await apiFetch('/api/auth/me');
+      S.cloud.user = me;
+    }
+    await pushDirty();
+    const payload = S.meta.lastSync
+      ? await apiFetch('/api/nm/pull?since=' + encodeURIComponent(S.meta.lastSync))
+      : await apiFetch('/api/nm/snapshot');
+    changed = mergeRemotePayload(payload);
+    if (ensureStats()) changed = true;
+    if (ensureHot()) changed = true;
+    await pushDirty();
+    S.cloud.status = 'online';
+    S.cloud.error = '';
+    S.cloud.lastAt = nowIso();
+    saveLocal();
+    if (!o.silent) toast('已同步', 'ok');
+  } catch (e) {
+    if (e.status === 401) {
+      S.cloud.status = 'local';
+      S.settings.token = '';
+      S.cloud.user = null;
+      saveLocal();
+      if (!o.silent) toast('登录已过期，请重新登录', 'warn');
+    } else {
+      S.cloud.status = 'offline';
+      S.cloud.error = e.code || e.message;
+      if (!o.silent) toast('同步失败，稍后自动重试', 'warn');
+    }
+  } finally {
+    S.cloud.busy = false;
+    updateSyncUI();
+    if (changed || !o.silent) render();
+  }
+}
+
+async function checkCloudAuth() {
+  S.cloud.status = 'checking';
+  updateSyncUI();
+  try {
+    const me = await apiFetch('/api/auth/me');
+    S.cloud.user = me;
+    await connectCloud({ silent: true });
+  } catch (e) {
+    S.cloud.user = null;
+    S.cloud.status = e.status === 401 ? 'local' : 'offline';
+    S.cloud.error = e.code || e.message;
+    updateSyncUI();
+  }
+}
+
+function authErrorText(code) {
+  return AUTH_ERRORS[code] || '操作失败：' + (code || '未知错误');
+}
+
+async function submitAuth(form) {
+  const mode = form.dataset.form;
+  const err = form.querySelector('.form-error');
+  const btn = form.querySelector('button[type=submit]');
+  const username = (form.querySelector('[name=username]') || {}).value || '';
+  const password = (form.querySelector('[name=password]') || {}).value || '';
+  const invite = (form.querySelector('[name=invite]') || {}).value || '';
+  const showErr = (msg) => { if (err) { err.textContent = msg; err.classList.add('show'); } };
+  if (err) err.classList.remove('show');
+  if (!username.trim()) return showErr('请填写用户名');
+  if (!password) return showErr('请填写密码');
+  if (mode === 'register' && !invite.trim()) return showErr('请填写邀请码');
+  if (btn) { btn.disabled = true; btn.textContent = '处理中…'; }
+  try {
+    const body = mode === 'register'
+      ? { username: username.trim(), password, invite: invite.trim() }
+      : { username: username.trim(), password };
+    const data = await apiFetch(mode === 'register' ? '/api/auth/register' : '/api/auth/login', { method: 'POST', body });
+    if (data && data.token) S.settings.token = data.token;
+    saveLocal();
+    const me = await apiFetch('/api/auth/me').catch(() => null);
+    S.cloud.user = me || { user_id: data.userId, username: username.trim() };
+    closeModal();
+    toast(mode === 'register' ? '账号已创建，云端同步已开启' : '登录成功，正在同步数据', 'ok');
+    await connectCloud({ silent: true });
+    render();
+  } catch (e) {
+    showErr(authErrorText(e.code || e.message));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = mode === 'register' ? '注册并开启同步' : '登录并同步'; }
+  }
+}
+
+async function logoutCloud() {
+  try { await apiFetch('/api/auth/logout', { method: 'POST', body: {} }); } catch { /* 本地退出也要生效 */ }
+  S.settings.token = '';
+  S.cloud.user = null;
+  S.cloud.status = 'local';
+  S.meta.lastSync = '';
+  saveLocal();
+  closeModal();
+  updateSyncUI();
+  render();
+  toast('已退出云同步，本地数据保留', 'ok');
+}
+
+function openAccountModal(mode) {
+  const m = mode || 'login';
+  const logged = !!S.cloud.user;
+  const rows = TABLES.reduce((n, t) => n + S.data[t].length, 0);
+  let body = '';
+  if (logged) {
+    body = `
+      <div class="sync-banner online"><span class="dot"></span><div><div class="t">@${esc(cloudLabel())}</div><div class="s">账号 ID ${esc((S.cloud.user.user_id || '').slice(0, 8))} · ${rows} 行本地数据 · 上次同步 ${esc(S.meta.lastSync ? fmtTime(S.meta.lastSync) : '尚未')}</div></div></div>
+      <div class="modal-note">同一账号在手机或另一台电脑登录，会看到同一份 7 张数据表。写入采用“更新时间较新者优先”，离线改动会在恢复连接后自动补传。</div>
+      <div class="cloud-actions"><button class="btn ink" data-action="sync-now">立即同步</button><button class="btn danger" data-action="logout">退出登录</button></div>
+      <div class="api-note">API：${esc(apiOrigin())}<br>数据表：选题池 / 热点池 / 制作任务 / 内容成品 / IP 形象库 / 发布记录 / 数据记录</div>`;
+  } else {
+    body = `
+      <div class="sync-banner"><span class="dot"></span><div><div class="t">当前是本地模式</div><div class="s">数据已存在这台设备的 localStorage；登录后写入 D1 并多端同步。</div></div></div>
+      <div class="seg-wide">
+        <button class="${m === 'login' ? 'on' : ''}" data-action="auth-mode" data-mode="login">登录</button>
+        <button class="${m === 'register' ? 'on' : ''}" data-action="auth-mode" data-mode="register">注册</button>
+      </div>
+      <form data-form="${esc(m)}">
+        <div class="form-error"></div>
+        <div class="field"><label>用户名</label><input name="username" autocomplete="username" placeholder="3–32 位字母、数字或下划线"></div>
+        <div class="field"><label>密码</label><input name="password" type="password" autocomplete="${m === 'register' ? 'new-password' : 'current-password'}" placeholder="至少 8 位"></div>
+        ${m === 'register' ? '<div class="field"><label>邀请码 <span class="opt">由主工作台管理员生成</span></label><input name="invite" autocomplete="off" placeholder="粘贴邀请码"></div>' : ''}
+        <div class="field"><button class="btn ink wide" type="submit">${m === 'register' ? '注册并开启同步' : '登录并同步'}</button></div>
+      </form>
+      <div class="modal-note">账号体系与主工作台共用；如果已经在那里登录，这里通常会自动识别。密码不会保存在本页面，API Key 也不会离开本机。</div>
+      <div class="api-note">同步地址：${esc(apiOrigin())}</div>`;
+  }
+  openModal(m === 'register' ? '注册云同步账号' : '云同步', 'Cloud / Data Plane', body);
+}
+
+function startCloudTimers() {
+  setInterval(() => {
+    if (document.hidden || !S.cloud.user) return;
+    syncNow({ silent: true });
+  }, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && S.cloud.user) syncNow({ silent: true });
+  });
+}
+
+/* ---------------- 任务引擎 / 内容生成 ---------------- */
+const FINISHING = new Set();
+
+function taskDuration(task) {
+  const p = parseJson(task.params, {});
+  return Math.max(8000, Math.min(60000, num(p.durationMs) || 16000));
+}
+function taskProgress(task) {
+  if (task.status === 'queued') return 0;
+  if (task.status === 'review' || task.status === 'done') return 100;
+  if (task.status === 'failed') return Math.min(96, num(task.progress) || 0);
+  if (task.status !== 'running') return 0;
+  const started = Date.parse(task.started_at || task.updatedAt) || Date.now();
+  return Math.max(2, Math.min(97, Math.floor(((Date.now() - started) / taskDuration(task)) * 100)));
+}
+function stageFor(p, task) {
+  if (task.status === 'queued') return '排队中';
+  if (task.status === 'failed') return '需要重试';
+  if (task.status === 'review') return '已交付 · 待把关';
+  if (task.status === 'done') return '已交付';
+  if (FINISHING.has(task.rid)) return 'AI 正在成稿';
+  if (p < 22) return '选题拆解';
+  if (p < 48) return '文案生成';
+  if (p < 72) return '配图 / 分镜';
+  if (p < 92) return '自检润色';
+  return '收尾排版';
+}
+function taskTopic(task) { return findRow('topic', task.topic_id); }
+function taskIp(task) { return findRow('ip', task.ip_id); }
+function taskTitle(task) { const t = taskTopic(task); return t ? t.title : '（选题已删除）'; }
+
+function startTask(task) {
+  if (!task || task.status !== 'queued') return;
+  task.status = 'running';
+  task.started_at = nowIso();
+  task.stage = '选题拆解';
+  task.progress = '3';
+  task.updatedAt = nowIso();
+  upsertLocal('task', task, { dirty: true, stamp: false, user: false });
+  if (S.ui.view === 'factory') renderFactory();
+}
+
+function updateTaskDom(task) {
+  const p = taskProgress(task);
+  const bar = document.querySelector(`[data-task-bar="${task.rid}"]`);
+  if (bar) bar.style.width = p + '%';
+  const pct = document.querySelector(`[data-task-pct="${task.rid}"]`);
+  if (pct) pct.textContent = p + '%';
+  const stage = document.querySelector(`[data-task-stage="${task.rid}"]`);
+  if (stage) stage.textContent = stageFor(p, task);
+}
+
+async function finishTask(task) {
+  if (!task || FINISHING.has(task.rid)) return;
+  if (task.status !== 'running') return;
+  FINISHING.add(task.rid);
+  const stage = document.querySelector(`[data-task-stage="${task.rid}"]`);
+  if (stage) stage.textContent = 'AI 正在成稿';
+  const topic = taskTopic(task) || { title: '未命名选题', note: '', line: task.line };
+  const ip = taskIp(task);
+  const params = parseJson(task.params, {});
+  try {
+    const body = await generateText(topic, task, ip);
+    const exists = findRow('content', `content|${task.rid}`);
+    if (exists) { FINISHING.delete(task.rid); return; }
+    const prev = params.prevContentId ? findRow('content', params.prevContentId) : null;
+    const version = String((prev ? num(prev.version) : 0) + 1 || 1);
+    const content = normalizeRow('content', {
+      rid: `content|${task.rid}`,
+      updatedAt: nowIso(),
+      title: topic.title,
+      line: task.line,
+      status: 'review',
+      body,
+      tags: JSON.stringify(inferTags(topic, task.line)),
+      assets: JSON.stringify(makeAssets(task.line)),
+      review_note: '',
+      prev_version_id: prev ? prev.rid : '',
+      task_id: task.rid,
+      topic_id: task.topic_id,
+      ip_id: task.ip_id,
+      version,
+      finished_at: nowIso(),
+      approved_at: '',
+    });
+    upsertLocal('content', content, { dirty: true, stamp: false, user: !params.seed });
+    task.status = 'review';
+    task.stage = '已交付 · 待把关';
+    task.progress = '100';
+    task.content_id = content.rid;
+    task.error = '';
+    task.updatedAt = nowIso();
+    upsertLocal('task', task, { dirty: true, stamp: false, user: !params.seed });
+    if (topic && topic.rid) {
+      topic.status = 'done';
+      topic.updatedAt = nowIso();
+      upsertLocal('topic', topic, { dirty: true, stamp: false, user: !params.seed });
+    }
+    if (ip) {
+      ip.appearances = String(num(ip.appearances) + 1);
+      ip.updatedAt = nowIso();
+      upsertLocal('ip', ip, { dirty: true, stamp: false, user: false });
+    }
+    toast(`《${topic.title}》已生成，进入草稿箱待把关`, 'ok');
+    if (S.ui.view === 'factory' || S.ui.view === 'drafts') render();
+  } catch (e) {
+    task.status = 'failed';
+    task.error = e && e.message ? e.message : '生成失败';
+    task.progress = String(taskProgress(task));
+    task.stage = '需要重试';
+    task.updatedAt = nowIso();
+    upsertLocal('task', task, { dirty: true, stamp: false, user: !params.seed });
+    toast('生成失败：' + task.error, 'bad');
+    render();
+  } finally {
+    FINISHING.delete(task.rid);
+  }
+}
+
+function tickTasks() {
+  let refresh = false;
+  for (const t of S.data.task) {
+    if (t.status === 'queued') {
+      const created = Date.parse(t.created_at || t.updatedAt) || 0;
+      if (Date.now() - created > 1200) { startTask(t); refresh = true; }
+    } else if (t.status === 'running') {
+      updateTaskDom(t);
+      if (taskProgress(t) >= 97) finishTask(t);
+    }
+  }
+  if (refresh && S.ui.view === 'factory') renderFactory();
+}
+
+function pickIp() {
+  const ips = S.data.ip.slice();
+  if (!ips.length) return null;
+  const free = ips.filter((i) => !ipLocked(i));
+  const pool = free.length ? free : ips;
+  return pool.sort((a, b) => num(a.appearances) - num(b.appearances))[0];
+}
+
+function createTask(topic, opts) {
+  const o = opts || {};
+  if (!topic) return null;
+  const line = o.line || topic.line || 'long';
+  const ip = o.ipId ? findRow('ip', o.ipId) : pickIp();
+  const base = line === 'long' ? 22000 : line === 'drama' ? 20000 : line === 'voiceover' ? 17000 : 15000;
+  const params = { durationMs: base + Math.floor(Math.random() * 7000), ipId: ip ? ip.rid : '', seed: false };
+  if (o.prevContentId) params.prevContentId = o.prevContentId;
+  const task = normalizeRow('task', {
+    rid: uid('task'), updatedAt: nowIso(), topic_id: topic.rid, line,
+    status: 'queued', stage: '排队中', progress: '0', params: JSON.stringify(params), error: '',
+    ip_id: ip ? ip.rid : '', content_id: '', started_at: '', created_at: nowIso(),
+  });
+  upsertLocal('task', task, { dirty: true, stamp: false, user: true });
+  topic.status = 'making';
+  topic.updatedAt = nowIso();
+  upsertLocal('topic', topic, { dirty: true, stamp: false, user: true });
+  toast(`任务已排队：${lineOf(line).name} · ${topic.title.slice(0, 18)}`, 'ok');
+  goView('factory');
+  return task;
+}
+
+function retryTask(task) {
+  if (!task) return;
+  task.status = 'queued';
+  task.error = '';
+  task.stage = '重新排队';
+  task.progress = '0';
+  task.started_at = '';
+  task.created_at = nowIso();
+  task.updatedAt = nowIso();
+  upsertLocal('task', task, { dirty: true, stamp: false, user: true });
+  toast('已重新排队，马上开始', 'ok');
+  render();
+}
+
+function inferTags(topic, line) {
+  const stop = /^(为什么|怎么|如何|一个|我们|他们|自己|可以|开始|时候|今天|今年|这个|那个|什么)$/;
+  const parts = String(topic.title || '').split(/[，。！？：；、\s《》“”"'（）()\-—|/]+/).filter((x) => x.length >= 2 && x.length <= 10 && !stop.test(x));
+  const tags = [];
+  for (const p of parts) { if (!tags.includes(p)) tags.push(p); if (tags.length >= 2) break; }
+  const lineTagMap = { long: '深度内容', short: '生活方式', voiceover: '口播', drama: '微短剧' };
+  tags.push(lineTagMap[line] || '内容');
+  if (topic.source) tags.push(topic.source.replace(/热搜|热榜|热点|热文/g, '').trim());
+  return [...new Set(tags.filter(Boolean))].slice(0, 4);
+}
+
+function makeAssets(line) {
+  if (line === 'long') return [{ kind: '封面', name: '封面 900×383' }, { kind: '配图', name: '配图 3 张' }];
+  if (line === 'short') return [{ kind: '封面', name: '封面 3:4' }, { kind: '配图', name: '配图 4 张' }];
+  if (line === 'voiceover') return [{ kind: '口播稿', name: '口播稿 1 份' }, { kind: '封面', name: '封面 1080×1920' }, { kind: '成片信息', name: '60s · 9:16' }];
+  return [{ kind: '分镜', name: '6 镜分镜表' }, { kind: '成片信息', name: '60s · 9:16' }];
+}
+
+function videoSpec() {
+  return '【成片信息单】\n时长：约 60 秒｜分辨率：1080×1920（9:16 竖屏）\n说明：在「发布中心」导出成品包时，会连同这份信息单一起交付。';
+}
+
+function mockGenerate(topic, task, ip) {
+  const title = topic.title || '未命名选题';
+  const note = topic.note || '';
+  const persona = ip ? ip.persona : '一个擅长把复杂问题讲清楚的内容主理人';
+  const name = ip ? ip.name : '主理人';
+  const tone = S.settings.tone || '克制';
+  const rnd = seeded(hashStr(task.rid + title));
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  const hooks = ['先说一个反常识的结论。', '这件事，和大多数人的直觉相反。', '我花了三天，才想明白这一点。', '如果你也遇到过，这一段可能会有点扎心。'];
+  const closings = ['你最近有类似的感受吗？评论区聊聊。', '如果只能记住一句，就记住这一句。', '先把最小的那一步做了，其他的再说。', '这条内容如果对你有用，转给那个正在需要它的人。'];
+  if (task.line === 'long') {
+    return `导语
+${pick(hooks)}关于「${title}」，我不想再给一个正确但没用的答案。${note ? '这次的重点是：' + note + '。' : ''}
+
+## 01 先把问题说清楚
+很多时候我们卡住，不是因为不努力，而是因为把问题定义错了。${name}的习惯是：先把问题写成一句能被验证的话，再决定要不要投入时间。
+
+## 02 我看到的三个细节
+第一，真正拉开差距的，往往不是信息量，而是筛选信息的标准。
+第二，能持续做下去的人，都给自己留了退路和节奏，而不是靠一时的热血。
+第三，${tone}的表达不等于冷淡，它只是把情绪放在了事实后面。
+
+## 03 一个可以马上用的方法
+把今天要做的事写成三行：必须做、可以晚点做、其实不用做。先完成第一行，再去碰第二行。这个动作很小，但它会替你省下大量看不见的消耗。
+
+## 结语
+${pick(closings)}
+${note ? '\n（选题备注：' + note + '）' : ''}`;
+  }
+  if (task.line === 'short') {
+    return `${title}
+
+${pick(hooks)}我最近把这件事拆成了三个小观察：
+
+一，别急着找标准答案。先看看自己真正卡在哪一步。
+二，${persona.split('。')[0]}。这个视角帮我少走了很多弯路。
+三，把动作缩小到"今天就能做完"，比制定一个完美计划更有用。
+
+${pick(closings)}
+
+${note ? '这次的重点：' + note + '。' : ''}`;
+  }
+  if (task.line === 'voiceover') {
+    return `【开场】
+${pick(hooks)}今天用一分钟，把「${title}」讲清楚。
+
+【正文】
+第一，别把它当成一个孤立的问题。它背后其实是你怎么分配时间和注意力。
+第二，${persona.split('。')[0]}。这不是天赋，是可以练的。
+第三，给自己一个很小的动作：今天只改一个变量，然后观察结果。
+
+【结尾】
+${pick(closings)}
+
+${videoSpec()}`;
+  }
+  return `《${title}》｜6 镜 · 约 60 秒
+
+第 1 镜｜日常场景 · 日 · 内
+主角正在做一件再普通不过的事，手机突然弹出一条消息。
+（字幕：${title}）
+
+第 2 镜｜特写
+主角停下手里的动作，盯着屏幕看了两秒。
+
+第 3 镜｜办公室 · 日 · 内
+同事凑过来：你还在纠结这个？
+主角：不是纠结，是我想弄明白。
+
+第 4 镜｜走廊 · 日 · 内
+两人边走边说，镜头跟随。
+同事：那你想明白了吗？
+主角：想明白一半。另一半，得做了才知道。
+
+第 5 镜｜窗边 · 黄昏 · 内
+主角把手机扣在桌上，深吸一口气。
+（旁白：${persona.split('。')[0]}。）
+
+第 6 镜｜字幕收尾
+${pick(closings)}
+（画面定格，音效：轻轻的合页声）
+
+${videoSpec()}`;
+}
+
+function llmPrompt(topic, task, ip) {
+  const l = lineOf(task.line);
+  const req = {
+    long: '写一篇 700–1000 字的中文长文。用“导语”开头，正文用 3 个小节，每节以“## 01/02/03”开头，最后有结语。不要写代码块。',
+    short: '写一篇 180–260 字的中文图文笔记。开头一句抓人，中间 3 个短段落，结尾一句互动。不要写话题标签。',
+    voiceover: '写一份约 60 秒的中文口播稿。用【开场】【正文】【结尾】分段，句子短、适合读出来，结尾给一个互动问题。最后附上【成片信息单】（约 60 秒 / 1080×1920 / 9:16 竖屏）。',
+    drama: '写一个 6 镜的中文微短剧脚本，每镜标注场景、时间、内外景和动作/对白，结尾有字幕金句。最后附上【成片信息单】（约 60 秒 / 1080×1920 / 9:16 竖屏）。',
+  }[task.line] || '写一篇中文内容。';
+  const sys = `你是「${ip ? ip.name : '主理人'}」的内容主笔。人设：${ip ? ip.persona : '擅长把复杂问题讲清楚的创作者'}。语气：${S.settings.tone || '克制'}。你只输出正文，不解释写作过程。`;
+  const user = `选题：${topic.title}\n选题备注：${topic.note || '无'}\n产线：${l.name}（${l.desc}）\n要求：${req}\n请直接输出可交付的正文。`;
+  return { sys, user };
+}
+
+async function llmCall(prompt) {
+  const base = (S.settings.apiBase || 'https://api.openai.com/v1').replace(/\/+$/, '');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    const res = await fetch(base + '/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + S.settings.apiKey },
+      body: JSON.stringify({
+        model: S.settings.model || 'gpt-4o-mini',
+        temperature: 0.85,
+        messages: [{ role: 'system', content: prompt.sys }, { role: 'user', content: prompt.user }],
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      throw new Error(`大模型接口返回 ${res.status}${t ? '：' + t.slice(0, 60) : ''}`);
+    }
+    const data = await res.json();
+    const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!text || !String(text).trim()) throw new Error('大模型没有返回正文');
+    return String(text).trim();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('大模型调用超时（60 秒）');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function generateText(topic, task, ip) {
+  if (S.settings.apiKey) {
+    const prompt = llmPrompt(topic, task, ip);
+    return await llmCall(prompt);
+  }
+  return mockGenerate(topic, task, ip);
+}
+
+function approveContent(id) {
+  const c = findRow('content', id);
+  if (!c) return;
+  c.status = 'approved';
+  c.approved_at = nowIso();
+  c.updatedAt = nowIso();
+  upsertLocal('content', c, { dirty: true, stamp: false, user: true });
+  const t = S.data.task.find((x) => x.content_id === id);
+  if (t) {
+    t.status = 'done';
+    t.stage = '已通过';
+    t.updatedAt = nowIso();
+    upsertLocal('task', t, { dirty: true, stamp: false, user: true });
+  }
+  toast('已通过把关，可以登记发布了', 'ok');
+  render();
+}
+
+function rejectContent(id, note) {
+  const c = findRow('content', id);
+  if (!c) return;
+  c.status = 'rejected';
+  c.review_note = note || '需要再打磨一版';
+  c.updatedAt = nowIso();
+  upsertLocal('content', c, { dirty: true, stamp: false, user: true });
+  const oldTask = S.data.task.find((x) => x.content_id === id);
+  if (oldTask) {
+    oldTask.status = 'done';
+    oldTask.stage = '已打回';
+    oldTask.updatedAt = nowIso();
+    upsertLocal('task', oldTask, { dirty: true, stamp: false, user: true });
+  }
+  const topic = findRow('topic', c.topic_id) || { title: c.title, rid: c.topic_id, line: c.line, note: '' };
+  const task = normalizeRow('task', {
+    rid: uid('task'), updatedAt: nowIso(), topic_id: c.topic_id, line: c.line,
+    status: 'queued', stage: '排队中', progress: '0',
+    params: JSON.stringify({ durationMs: 16000 + Math.floor(Math.random() * 6000), ipId: c.ip_id, prevContentId: c.rid, seed: false }),
+    error: '', ip_id: c.ip_id, content_id: '', started_at: '', created_at: nowIso(),
+  });
+  upsertLocal('task', task, { dirty: true, stamp: false, user: true });
+  if (topic.rid) {
+    topic.status = 'making';
+    topic.updatedAt = nowIso();
+    upsertLocal('topic', topic, { dirty: true, stamp: false, user: true });
+  }
+  toast('已打回，新版本任务已排队', 'warn');
+  closeModal();
+  render();
+}
+
+function regenerateContent(id) {
+  const c = findRow('content', id);
+  if (!c) return;
+  c.review_note = '已发起新版本';
+  c.updatedAt = nowIso();
+  upsertLocal('content', c, { dirty: true, stamp: false, user: true });
+  const topic = findRow('topic', c.topic_id) || { rid: c.topic_id, title: c.title, line: c.line, note: '' };
+  const task = normalizeRow('task', {
+    rid: uid('task'), updatedAt: nowIso(), topic_id: c.topic_id, line: c.line,
+    status: 'queued', stage: '排队中', progress: '0',
+    params: JSON.stringify({ durationMs: 16000 + Math.floor(Math.random() * 6000), ipId: c.ip_id, prevContentId: c.rid, seed: false }),
+    error: '', ip_id: c.ip_id, content_id: '', started_at: '', created_at: nowIso(),
+  });
+  upsertLocal('task', task, { dirty: true, stamp: false, user: true });
+  if (topic.rid && findRow('topic', topic.rid)) {
+    topic.status = 'making';
+    topic.updatedAt = nowIso();
+    upsertLocal('topic', topic, { dirty: true, stamp: false, user: true });
+  }
+  toast('新版本任务已排队', 'ok');
+  closeModal();
+  render();
+}
+
+function publishContent(id, platform, method) {
+  const c = findRow('content', id);
+  if (!c) return;
+  const pub = normalizeRow('pub', {
+    rid: uid('pub'), updatedAt: nowIso(), content_id: c.rid, platform, method,
+    status: 'published', published_at: nowIso(),
+  });
+  upsertLocal('pub', pub, { dirty: true, stamp: false, user: true });
+  c.status = 'published';
+  c.approved_at = c.approved_at || nowIso();
+  c.updatedAt = nowIso();
+  upsertLocal('content', c, { dirty: true, stamp: false, user: true });
+  const t = S.data.task.find((x) => x.content_id === id);
+  if (t) {
+    t.status = 'done';
+    t.stage = '已发布';
+    t.updatedAt = nowIso();
+    upsertLocal('task', t, { dirty: true, stamp: false, user: true });
+  }
+  ensureStats();
+  closeModal();
+  toast('发布已登记，数据看板开始跟踪', 'ok');
+  if (method === '导出成品包') exportKit(id);
+  render();
+}
+
+function exportKit(id) {
+  const c = findRow('content', id);
+  if (!c) return;
+  const tags = parseJson(c.tags, []);
+  const pubs = pubRecords().filter((p) => p.content_id === id).map((p) => p.platform);
+  const spec = (c.line === 'voiceover' || c.line === 'drama') ? `\n\n${videoSpec()}` : '';
+  const text = `${c.title}\n\n产线：${lineOf(c.line).name}\n平台：${pubs.join(' / ') || '待登记'}\n标签：${tags.join(' ')}\n\n${c.body}${spec}`;
+  downloadText(c.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 40) + '-成品包.txt', text);
+  toast('成品包已导出', 'ok');
+}
+
+function downloadText(name, text) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function nextHotAt() {
+  const last = Date.parse(S.meta.lastHotAt || 0);
+  return new Date((last || Date.now()) + 3600000);
+}
+
+/* ---------------- 视图：选题 / 工厂 / IP ---------------- */
+function goView(key) {
+  if (!VIEWS.some((v) => v.key === key)) key = 'topics';
+  S.ui.view = key;
+  if (location.hash !== '#/' + key) {
+    try { history.replaceState(null, '', '#/' + key); } catch { location.hash = '#/' + key; }
+  }
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderNav() {
+  const navs = ['nav', 'navEmbed'].map((id) => document.getElementById(id)).filter(Boolean);
+  if (!navs.length) return;
+  const counts = {
+    topics: S.data.topic.filter((t) => t.status === 'todo').length,
+    factory: activeTasks().length,
+    drafts: reviewContents().length,
+    publish: S.data.content.filter((c) => c.status === 'approved').length,
+  };
+  const navHtml = VIEWS.map((v) => {
+    const n = counts[v.key] || 0;
+    return `<div class="nav-item ${S.ui.view === v.key ? 'active' : ''}" data-nav="${v.key}"><span class="no">${v.no}</span><span>${v.name}</span><span class="nav-badge ${n ? 'show' : ''}">${n > 99 ? '99+' : n}</span></div>`;
+  }).join('');
+  navs.forEach((nav) => { nav.innerHTML = navHtml; });
+  const view = VIEWS.find((v) => v.key === S.ui.view) || VIEWS[0];
+  const kicker = document.getElementById('topKicker');
+  const title = document.getElementById('topTitle');
+  if (kicker) kicker.textContent = `Workbench / ${view.no} · ${view.kicker}`;
+  if (title) title.textContent = view.name;
+  const action = document.getElementById('topAction');
+  if (action) {
+    const cfg = {
+      topics: ['new-topic', '登记新选题'],
+      factory: ['line-choose', '＋ 新建任务'],
+      ip: ['ip-new', '＋ 新建 IP'],
+    }[view.key];
+    if (cfg) { action.hidden = false; action.dataset.action = cfg[0]; action.textContent = cfg[1]; }
+    else action.hidden = true;
+  }
+  const d = new Date();
+  const week = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+  const chip = document.getElementById('dateChip');
+  if (chip) chip.textContent = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日 · 周${week}`;
+  const foot = document.getElementById('footMeta');
+  if (foot) foot.textContent = `本地 ${TABLES.reduce((n, t) => n + S.data[t].length, 0)} 行 · ${S.cloud.user ? '云端已连接' : '本地模式'} · 无外部依赖`;
+}
+
+function render() {
+  const settingsInput = S.ui.view === 'settings' && document.getElementById('view-settings') && document.getElementById('view-settings').contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  renderNav();
+  document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.dataset.view === S.ui.view));
+  updateSyncUI();
+  if (settingsInput) return;
+  if (S.ui.view === 'topics') renderTopics();
+  else if (S.ui.view === 'factory') renderFactory();
+  else if (S.ui.view === 'ip') renderIP();
+  else if (S.ui.view === 'drafts') renderDrafts();
+  else if (S.ui.view === 'publish') renderPublish();
+  else if (S.ui.view === 'dashboard') renderDashboard();
+  else if (S.ui.view === 'settings') renderSettings();
+}
+
+/* 各来源的热度口径不同（百度动辄 700 万，B 站约 180 万），纯按数值排会只剩百度。
+   每个来源先各保 3 条，其余再按热度补齐。 */
+function topHot(limit) {
+  const sorted = S.data.hot.slice().sort((a, b) => num(b.heat) - num(a.heat));
+  const platforms = [...new Set(sorted.map((h) => h.platform))].slice(0, 5);
+  const picked = [];
+  const seen = new Set();
+  const take = (h) => {
+    if (!h || seen.has(h.rid) || picked.length >= limit) return;
+    seen.add(h.rid);
+    picked.push(h);
+  };
+  platforms.forEach((p) => sorted.filter((h) => h.platform === p).slice(0, 3).forEach(take));
+  sorted.forEach(take);
+  return picked.slice(0, limit);
+}
+
+function renderTopics() {
+  const el = document.getElementById('view-topics');
+  if (!el) return;
+  const hotToday = todayHot();
+  const kpi = `
+    <div class="kpi-grid">
+      <div class="kpi k1"><span class="idx">01</span><div class="kpi-num">${S.data.topic.filter((t) => t.status === 'todo').length}<span class="unit">条</span></div><div class="kpi-label">选题池待做</div><div class="kpi-note">共 ${S.data.topic.length} 条选题 · ${S.data.topic.filter((t) => t.status === 'done').length} 条已完成</div></div>
+      <div class="kpi k2"><span class="idx">02</span><div class="kpi-num">${hotToday.length}<span class="unit">条</span></div><div class="kpi-label">今日热点</div><div class="kpi-note">来源 · ${esc(hotSourceLabel())}</div></div>
+      <div class="kpi k3"><span class="idx">03</span><div class="kpi-num">${activeTasks().length}<span class="unit">个</span></div><div class="kpi-label">制作中</div><div class="kpi-note">排队 ${S.data.task.filter((t) => t.status === 'queued').length} · 运行 ${S.data.task.filter((t) => t.status === 'running').length}</div></div>
+      <div class="kpi k4"><span class="idx">04</span><div class="kpi-num">${streakDays()}<span class="unit">天</span></div><div class="kpi-label">连续更新</div><div class="kpi-note">发布记录按天去重 · 今天${pubRecords().some((p) => (p.published_at || '').slice(0, 10) === todayKey()) ? '已更新' : '还没发'}</div></div>
+    </div>`;
+
+  const filter = S.ui.topicFilter;
+  const counts = { all: S.data.topic.length, todo: 0, making: 0, done: 0 };
+  S.data.topic.forEach((t) => { if (counts[t.status] != null) counts[t.status] += 1; });
+  const filtered = S.data.topic.filter((t) => filter === 'all' || t.status === filter).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  const cards = filtered.map((t) => {
+    const l = lineOf(t.line);
+    const c = S.data.content.filter((x) => x.topic_id === t.rid).sort((a, b) => (b.finished_at || '').localeCompare(a.finished_at || ''))[0];
+    let acts = '';
+    if (t.status === 'todo') acts = `<button class="btn sm ink" data-action="task-new" data-id="${t.rid}">开始制作</button>`;
+    else if (t.status === 'making') acts = `<button class="btn sm" data-action="goto-factory">查看任务</button>`;
+    else if (c) acts = `<button class="btn sm" data-action="open-draft" data-id="${c.rid}">查看成品</button>`;
+    else acts = `<button class="btn sm" data-action="task-new" data-id="${t.rid}">再做一版</button>`;
+    return `<article class="topic-card" style="--tone:${l.tone}">
+      <div class="topic-main">
+        <h3 class="topic-title">${esc(t.title)}</h3>
+        <div class="topic-meta">${lineTag(t.line)}${statusChip(t.status)}${t.source ? `<span>来源 · ${esc(t.source)}</span>` : ''}<span>${esc(relTime(t.created_at))}</span></div>
+        ${t.note ? `<div class="topic-note">${esc(t.note)}</div>` : ''}
+      </div>
+      <div class="topic-side">
+        <div class="topic-acts">${acts}<button class="icon-btn" data-action="topic-del" data-id="${t.rid}" title="删除选题">×</button></div>
+        <div class="mono muted" style="font-size:9px;text-align:right">${c ? '成品 v' + esc(c.version || '1') : '尚无成品'}</div>
+      </div>
+    </article>`;
+  }).join('');
+
+  const hot = topHot(12);
+  const hotItems = hot.map((h, i) => `<div class="hot-item">
+    <div class="hot-rank">${String(i + 1).padStart(2, '0')}</div>
+    <div class="hot-body">
+      <div class="hot-title">${esc(h.title)}</div>
+      <div class="hot-meta"><span>${esc(h.platform)}</span><span class="heat">热度 ${fmt(h.heat)}</span><span>${esc(relTime(h.fetched_at))}</span></div>
+    </div>
+    <div class="hot-act">${h.status === 'used' ? '<span class="label">已转选题</span>' : `<button class="btn tiny" data-action="hot-convert" data-id="${h.rid}">转选题</button>`}</div>
+  </div>`).join('');
+
+  const next = nextHotAt();
+  const mins = Math.max(0, Math.ceil((next - Date.now()) / 60000));
+  el.innerHTML = `
+    ${kpi}
+    <div class="split">
+      <section>
+        <div class="sec-head">
+          <div class="sec-title"><h2>选题池</h2><span class="rule">${counts.all} entries</span></div>
+          <div class="seg">
+            <button class="${filter === 'all' ? 'on' : ''}" data-action="topic-filter" data-filter="all">全部 <span class="count">${counts.all}</span></button>
+            <button class="${filter === 'todo' ? 'on' : ''}" data-action="topic-filter" data-filter="todo">待做 <span class="count">${counts.todo}</span></button>
+            <button class="${filter === 'making' ? 'on' : ''}" data-action="topic-filter" data-filter="making">制作中 <span class="count">${counts.making}</span></button>
+            <button class="${filter === 'done' ? 'on' : ''}" data-action="topic-filter" data-filter="done">已完成 <span class="count">${counts.done}</span></button>
+          </div>
+        </div>
+        <div class="topic-list">${cards || emptyState('这个筛选下还没有选题', '换个筛选，或登记一条新选题。')}</div>
+      </section>
+      <aside class="panel hot-panel" style="position:sticky;top:18px">
+        <div class="panel-head"><h3>热点雷达</h3><span class="hint">每小时联网抓取 · B站 / 百度</span></div>
+        <div class="panel-body" style="padding-top:4px;padding-bottom:6px">
+          <div class="hot-list">${hotItems || '<div class="hot-empty">热点池为空，点击下方立即抓取。</div>'}</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 15px;border-top:1px dashed var(--line-2)">
+          <span class="mono muted" style="font-size:9px">${mins > 0 ? '下一轮还有 ' + mins + ' 分钟' : '即将抓取'} · ${esc(hotSourceLabel())} · 共 ${S.data.hot.length} 条</span>
+          <button class="btn tiny" data-action="hot-refresh">立即抓取</button>
+        </div>
+      </aside>
+    </div>`;
+}
+
+function renderFactory() {
+  const el = document.getElementById('view-factory');
+  if (!el) return;
+  const lines = LINE_KEYS.map((k, i) => {
+    const l = LINES[k];
+    const all = lineTaskCount(k);
+    const active = all.filter((t) => t.status === 'queued' || t.status === 'running').length;
+    const review = all.filter((t) => t.status === 'review').length;
+    const done = all.filter((t) => t.status === 'done').length;
+    return `<div class="line-card" style="--tone:${l.tone};--tone-soft:${l.soft}">
+      <div class="ln">0${i + 1}</div>
+      <h3><span class="line-mark">${l.mark}</span>${l.name}</h3>
+      <div class="desc">${l.desc} · ${l.word}</div>
+      <div class="stat"><div><b>${active}</b> <span>进行中</span></div><div class="mono muted" style="text-align:right">待把关 ${review}<br>已完成 ${done}</div></div>
+      <button class="btn" data-action="line-new" data-line="${k}">＋ 新任务</button>
+    </div>`;
+  }).join('');
+
+  const card = (t) => {
+    const l = lineOf(t.line);
+    const p = taskProgress(t);
+    const stage = stageFor(p, t);
+    const ip = taskIp(t);
+    const cls = t.status === 'review' || t.status === 'done' ? 'done' : t.status === 'failed' ? '' : 'gold';
+    const actions = t.status === 'failed'
+      ? `<button class="btn tiny ink" data-action="task-retry" data-id="${t.rid}">重试</button>`
+      : t.status === 'review'
+        ? `<button class="btn tiny ink" data-action="open-draft" data-id="${t.content_id}">去把关</button>`
+        : t.status === 'queued'
+          ? `<button class="btn tiny" data-action="task-start" data-id="${t.rid}">立即开始</button>`
+          : '';
+    return `<div class="task-card" style="--tone:${l.tone}">
+      <div class="task-top">${lineTag(t.line)}${statusChip(t.status)}</div>
+      <div class="task-title">${esc(taskTitle(t))}</div>
+      <div class="task-meta"><span>${ip ? esc(ip.name) : '未指定 IP'}</span><span>·</span><span>${l.word}</span><span>·</span><span>${esc(relTime(t.created_at))}</span></div>
+      <div class="progress ${cls}"><i data-task-bar="${t.rid}" style="width:${p}%"></i></div>
+      <div class="task-foot"><span class="task-stage" data-task-stage="${t.rid}">${esc(stage)}</span><span class="mono muted" style="font-size:9px" data-task-pct="${t.rid}">${p}%</span></div>
+      ${t.error ? `<div class="task-error">${esc(t.error)}</div>` : ''}
+      ${actions ? `<div class="task-foot" style="margin-top:7px"><span></span>${actions}</div>` : ''}
+    </div>`;
+  };
+  const col = (title, hint, list) => `<div class="board-col">
+    <div class="board-head"><h4>${title}</h4><span class="n">${hint} · ${list.length}</span></div>
+    <div class="board-body">${list.length ? list.map(card).join('') : emptyState('这一列是空的', '')}</div>
+  </div>`;
+  const queued = S.data.task.filter((t) => t.status === 'queued' || t.status === 'failed').sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+  const running = S.data.task.filter((t) => t.status === 'running');
+  const review = S.data.task.filter((t) => t.status === 'review');
+  const done = S.data.task.filter((t) => t.status === 'done').sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 6);
+
+  el.innerHTML = `
+    <section class="section" style="padding-top:22px">
+      <div class="sec-head"><div class="sec-title"><h2>四条产线</h2><span class="rule">production lines</span></div><div class="sec-sub">长图文 / 短图文 / 口播 / 微短剧 · 异步推进</div></div>
+      <div class="line-strip">${lines}</div>
+    </section>
+    <section class="section" style="padding-top:8px">
+      <div class="sec-head"><div class="sec-title"><h2>任务看板</h2><span class="rule">task board</span></div><div class="sec-sub">任务完成后自动进入草稿箱，必须把关才能发布</div></div>
+      <div class="board">
+        ${col('待处理', 'queued', queued)}
+        ${col('制作中', 'running', running)}
+        ${col('待把关', 'review', review)}
+      </div>
+    </section>
+    ${done.length ? `<section class="section" style="padding-top:20px"><div class="sec-head"><div class="sec-title"><h2>最近交付</h2><span class="rule">recent</span></div></div><div style="display:flex;gap:8px;flex-wrap:wrap">${done.map((t) => `<button class="btn sm ghost" data-action="open-draft" data-id="${t.content_id}">${esc(lineOf(t.line).mark)} · ${esc(taskTitle(t).slice(0, 24))} · ${esc(relTime(t.updatedAt))}</button>`).join('')}</div></section>` : ''}`;
+}
+
+function renderIP() {
+  const el = document.getElementById('view-ip');
+  if (!el) return;
+  const tones = [
+    { tone: '#3f5568', soft: '#e2e8eb' },
+    { tone: '#a83e22', soft: '#f4ded2' },
+    { tone: '#4f6247', soft: '#e4e8dc' },
+    { tone: '#a97c2f', soft: '#f3e8cf' },
+  ];
+  const cards = S.data.ip.map((ip, i) => {
+    const t = tones[i % tones.length];
+    const locked = ipLocked(ip);
+    const appearance = num(ip.appearances);
+    return `<article class="ip-card ${locked ? 'locked' : ''}" style="--tone:${t.tone};--tone-soft:${t.soft}">
+      <div class="ip-cover">
+        <span class="ip-lock">出演中 · 已锁定</span>
+        <span class="ring"></span><span class="ring r2"></span>
+        <span class="initial">${esc((ip.name || 'IP').slice(0, 1))}</span>
+        <span class="stamp">PERSONA</span>
+      </div>
+      <div class="ip-body">
+        <div class="ip-name"><h3>${esc(ip.name)}</h3>${statusChip(locked ? 'active' : 'idle')}</div>
+        <p class="ip-persona">${esc(ip.persona || '还没有填写人设。')}</p>
+        <div class="ip-meta"><span>${esc(ip.config || '未设置形象')}</span><span>出演 <b>${appearance}</b> 次</span></div>
+        <div class="ip-actions">
+          <button class="btn sm" data-action="ip-edit" data-id="${ip.rid}" ${locked ? 'disabled title="出演中，完成把关后解锁"' : ''}>编辑</button>
+          <button class="btn sm danger" data-action="ip-del" data-id="${ip.rid}" ${locked ? 'disabled title="出演中，完成把关后解锁"' : ''}>删除</button>
+        </div>
+      </div>
+    </article>`;
+  }).join('');
+  el.innerHTML = `
+    <section class="section" style="padding-top:22px">
+      <div class="sec-head"><div class="sec-title"><h2>IP 形象库</h2><span class="rule">${S.data.ip.length} personas</span></div><div class="sec-sub">有任务在跑或成品待把关时，IP 会自动锁定</div></div>
+      <div class="ip-grid">${cards || emptyState('还没有 IP 形象', '新建一个，让不同产线有稳定的说话方式。')}</div>
+    </section>`;
+}
+
+function openNewTaskModal(line) {
+  const topics = S.data.topic.filter((t) => t.status !== 'making').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  const ips = S.data.ip;
+  const l = lineOf(line || 'long');
+  const opts = topics.map((t) => `<option value="${esc(t.rid)}">${esc(lineOf(t.line).name)} · ${esc(t.title)}</option>`).join('');
+  const ipOpts = ips.map((ip) => `<option value="${esc(ip.rid)}" ${ipLocked(ip) ? 'disabled' : ''}>${esc(ip.name)}${ipLocked(ip) ? '（出演中）' : ''}</option>`).join('');
+  openModal('新建制作任务', 'Production / New Task', `
+    <form data-form="new-task" data-line="${esc(l.key)}">
+      <div class="form-error"></div>
+      <div class="field"><label>产线</label><select name="line">${LINE_KEYS.map((k) => `<option value="${k}" ${k === l.key ? 'selected' : ''}>${LINES[k].name} · ${LINES[k].desc}</option>`).join('')}</select></div>
+      <div class="field"><label>选题</label><select name="topic">${opts || '<option value="">没有可用的选题，请先登记</option>'}</select><div class="hint">已是「制作中」的选题不会出现在这里，避免重复开任务。</div></div>
+      <div class="field"><label>出演 IP <span class="opt">出演中的 IP 不可选</span></label><select name="ip"><option value="">自动选择（出演次数最少）</option>${ipOpts}</select></div>
+      <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">取消</button><button class="btn ink" type="submit" ${topics.length ? '' : 'disabled'}>排队并开始</button></div>
+    </form>`);
+}
+
+function openIpModal(id) {
+  const ip = id ? findRow('ip', id) : null;
+  openModal(ip ? '编辑 IP 形象' : '新建 IP 形象', 'Persona / ' + (ip ? 'Edit' : 'New'), `
+    <form data-form="ip" data-id="${ip ? esc(ip.rid) : ''}">
+      <div class="form-error"></div>
+      <div class="field"><label>名称</label><input name="name" maxlength="20" value="${ip ? esc(ip.name) : ''}" placeholder="例如：阿墨"></div>
+      <div class="field"><label>人设</label><textarea name="persona" maxlength="300" placeholder="说话方式、价值观、口头禅、擅长什么">${ip ? esc(ip.persona) : ''}</textarea><div class="hint">人设会进入本地生成引擎和大模型提示词，决定内容的语气。</div></div>
+      <div class="field"><label>形象配置 <span class="opt">选填</span></label><input name="config" maxlength="80" value="${ip ? esc(ip.config) : ''}" placeholder="例如：圆框眼镜 / 灰衬衫 / 冷调纸感"></div>
+      <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">取消</button><button class="btn ink" type="submit">${ip ? '保存' : '创建 IP'}</button></div>
+    </form>`);
+}
+
+/* ---------------- 视图：草稿 / 发布 / 看板 / 设置 ---------------- */
+function renderDrafts() {
+  const el = document.getElementById('view-drafts');
+  if (!el) return;
+  const filter = S.ui.draftFilter || 'review';
+  const counts = {
+    review: S.data.content.filter((c) => c.status === 'review').length,
+    approved: S.data.content.filter((c) => c.status === 'approved').length,
+    rejected: S.data.content.filter((c) => c.status === 'rejected').length,
+    published: S.data.content.filter((c) => c.status === 'published').length,
+    all: S.data.content.length,
+  };
+  const list = S.data.content.filter((c) => filter === 'all' || c.status === filter).sort((a, b) => (b.finished_at || b.updatedAt || '').localeCompare(a.finished_at || a.updatedAt || ''));
+  if (!S.ui.draftId || !list.some((c) => c.rid === S.ui.draftId)) S.ui.draftId = list[0] ? list[0].rid : '';
+  const c = list.find((x) => x.rid === S.ui.draftId) || S.data.content.find((x) => x.rid === S.ui.draftId);
+  const items = list.map((x) => {
+    const tags = parseJson(x.tags, []);
+    return `<div class="draft-item ${x.rid === S.ui.draftId ? 'on' : ''}" data-action="draft-select" data-id="${x.rid}">
+      <h4>${esc(x.title)}</h4>
+      <div class="meta">${lineTag(x.line)}${statusChip(x.status)}<span>v${esc(x.version || '1')}</span><span>${esc(relTime(x.finished_at || x.updatedAt))}</span></div>
+      ${tags.length ? `<div class="mono muted" style="font-size:9px;margin-top:5px">${tags.map((t) => '#' + esc(t)).join(' ')}</div>` : ''}
+    </div>`;
+  }).join('');
+  let preview = '';
+  if (!c) {
+    preview = `<div class="preview"><div class="preview-empty"><div><b style="display:block;font-family:var(--serif);font-size:16px;color:var(--ink-2);margin-bottom:5px">这一栏没有内容</b>去内容工厂开一个任务，成品会自动落到这里。</div></div></div>`;
+  } else {
+    const tags = parseJson(c.tags, []);
+    const assets = parseJson(c.assets, []);
+    let acts = '';
+    if (c.status === 'review') acts = `<button class="btn ghost" data-action="draft-reject" data-id="${c.rid}">打回修改</button><button class="btn ink" data-action="draft-approve" data-id="${c.rid}">通过，送发布</button>`;
+    else if (c.status === 'approved') acts = `<button class="btn" data-action="draft-regen" data-id="${c.rid}">再做一版</button><button class="btn ink" data-action="publish-open" data-id="${c.rid}">去登记发布</button>`;
+    else if (c.status === 'rejected') acts = `<button class="btn ink" data-action="draft-regen" data-id="${c.rid}">重新生成</button>`;
+    else if (c.status === 'published') acts = `<button class="btn" data-action="draft-export" data-id="${c.rid}">导出成品包</button>`;
+    preview = `<div class="preview">
+      <div class="preview-head">
+        ${c.status === 'review' ? '<span class="stamp">待把关</span>' : c.status === 'approved' ? '<span class="stamp" style="border-color:var(--green);color:var(--green)">已通过</span>' : c.status === 'published' ? '<span class="stamp" style="border-color:var(--ink);color:var(--ink)">已发布</span>' : '<span class="stamp" style="border-color:var(--red);color:var(--red)">已打回</span>'}
+        <h2>${esc(c.title)}</h2>
+        <div class="meta">${lineTag(c.line)}${statusChip(c.status)}<span>版本 v${esc(c.version || '1')}</span><span>完成 ${esc(fmtTime(c.finished_at || c.updatedAt))}</span>${c.prev_version_id ? '<span>上一版已归档</span>' : ''}</div>
+      </div>
+      <div class="preview-tags">${tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join('')}${assets.map((a) => `<span class="tag">${esc(a.kind)} · ${esc(a.name)}</span>`).join('')}</div>
+      <div class="md-body">${renderBody(c.body)}</div>
+      ${c.review_note ? `<div style="padding:0 20px 14px"><div class="review-note">把关意见：${esc(c.review_note)}</div></div>` : ''}
+      <div class="preview-foot"><span class="mono muted" style="font-size:9.5px">所有内容必须经过把关才能发布 · 无跳过途径</span><div style="display:flex;gap:7px;flex-wrap:wrap">${acts}</div></div>
+    </div>`;
+  }
+  el.innerHTML = `
+    <section class="section" style="padding-top:22px">
+      <div class="sec-head">
+        <div class="sec-title"><h2>草稿箱</h2><span class="rule">gatekeeping</span></div>
+        <div class="seg">
+          <button class="${filter === 'review' ? 'on' : ''}" data-action="draft-filter" data-filter="review">待把关 <span class="count">${counts.review}</span></button>
+          <button class="${filter === 'approved' ? 'on' : ''}" data-action="draft-filter" data-filter="approved">已通过 <span class="count">${counts.approved}</span></button>
+          <button class="${filter === 'rejected' ? 'on' : ''}" data-action="draft-filter" data-filter="rejected">已打回 <span class="count">${counts.rejected}</span></button>
+          <button class="${filter === 'all' ? 'on' : ''}" data-action="draft-filter" data-filter="all">全部 <span class="count">${counts.all}</span></button>
+        </div>
+      </div>
+      <div class="draft-grid">
+        <div class="draft-list">${items || emptyState('这里还没有内容', '去内容工厂跑一条产线。')}</div>
+        ${preview}
+      </div>
+    </section>`;
+}
+
+function openRejectModal(id) {
+  const c = findRow('content', id);
+  if (!c) return;
+  openModal('打回这一版', 'Review / Reject', `
+    <form data-form="reject" data-id="${esc(id)}">
+      <div class="form-error"></div>
+      <div class="field"><label>把关意见</label><textarea name="note" maxlength="400" placeholder="说清楚哪里不行、下一版改什么。例如：开头太绕，前三句直接进冲突；结尾不要总结，留一个问题。"></textarea></div>
+      <div class="modal-note">打回后会自动创建一个新版本任务，沿用同一选题和 IP；旧版本保留在草稿箱里可追溯。</div>
+      <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">取消</button><button class="btn accent" type="submit">打回并重做</button></div>
+    </form>`);
+}
+
+function renderPublish() {
+  const el = document.getElementById('view-publish');
+  if (!el) return;
+  const pending = S.data.content.filter((c) => c.status === 'approved').sort((a, b) => (b.approved_at || '').localeCompare(a.approved_at || ''));
+  const cards = pending.map((c) => {
+    const l = lineOf(c.line);
+    const tags = parseJson(c.tags, []);
+    return `<article class="pub-card" style="--tone:${l.tone}">
+      <div class="meta">${lineTag(c.line)}<span>v${esc(c.version || '1')}</span></div>
+      <h4>${esc(c.title)}</h4>
+      <div class="meta">${tags.slice(0, 3).map((t) => '#' + esc(t)).join(' ') || '未设置标签'}</div>
+      <div class="platform-chips">${PLATFORMS.map((p) => `<span class="platform">${p}</span>`).join('')}</div>
+      <div class="acts"><button class="btn sm" data-action="draft-export" data-id="${c.rid}">导出</button><button class="btn sm ink" data-action="publish-open" data-id="${c.rid}">登记发布</button></div>
+    </article>`;
+  }).join('');
+  const recs = pubRecords().slice(0, 16);
+  const rows = recs.map((p) => {
+    const c = findRow('content', p.content_id);
+    return `<tr><td class="mono" style="font-size:9.5px;white-space:nowrap">${esc(fmtTime(p.published_at))}</td><td><div class="t-title">${esc(c ? c.title : '内容已删除')}</div></td><td>${platformTag(p.platform)}</td><td>${esc(p.method)}</td><td>${statusChip(p.status)}</td></tr>`;
+  }).join('');
+  const byPlatform = {};
+  pubRecords().forEach((p) => { byPlatform[p.platform] = (byPlatform[p.platform] || 0) + 1; });
+  el.innerHTML = `
+    <section class="section" style="padding-top:22px">
+      <div class="sec-head"><div class="sec-title"><h2>待发布</h2><span class="rule">${pending.length} approved</span></div><div class="sec-sub">连续更新 ${streakDays()} 天 · 已登记 ${pubRecords().length} 条</div></div>
+      <div class="pub-cards">${cards || emptyState('没有待发布内容', '先去草稿箱通过一篇，通过后才会出现在这里。')}</div>
+    </section>
+    <section class="section" style="padding-top:26px">
+      <div class="sec-head"><div class="sec-title"><h2>发布记录</h2><span class="rule">publish log</span></div><div class="sec-sub">${PLATFORMS.map((p) => p + ' ' + (byPlatform[p] || 0)).join(' · ')}</div></div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0">
+          ${recs.length ? `<div class="records"><table class="data"><thead><tr><th>发布时间</th><th>内容</th><th>平台</th><th>方式</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table></div>` : emptyState('还没有发布记录', '通过把关后登记发布，这里会留下记录，数据看板也会开始跟踪。')}
+        </div>
+      </div>
+    </section>`;
+}
+
+function openPublishModal(id) {
+  const c = findRow('content', id);
+  if (!c) return;
+  const def = c.line === 'long' ? '公众号' : c.line === 'short' ? '小红书' : c.line === 'voiceover' ? '视频号' : '抖音';
+  openModal('登记发布', 'Publishing / Register', `
+    <form data-form="publish" data-id="${esc(id)}">
+      <div class="form-error"></div>
+      <div class="field"><label>发布平台</label><div class="radio-grid">
+        ${PLATFORMS.map((p) => `<label class="radio-card ${p === def ? 'on' : ''}" data-action="pick-radio"><span class="r"></span><input type="radio" name="platform" value="${p}" ${p === def ? 'checked' : ''} hidden>${p}</label>`).join('')}
+      </div></div>
+      <div class="field"><label>发布方式</label><div class="radio-grid">
+        <label class="radio-card on" data-action="pick-radio"><span class="r"></span><input type="radio" name="method" value="手动发布" checked hidden>手动发布</label>
+        <label class="radio-card" data-action="pick-radio"><span class="r"></span><input type="radio" name="method" value="导出成品包" hidden>导出成品包</label>
+        <label class="radio-card" data-action="pick-radio"><span class="r"></span><input type="radio" name="method" value="API 直发" hidden>API 直发</label>
+      </div></div>
+      <div class="modal-note">这里是登记式发布：不直接调用各平台 API。登记后会生成发布记录，并按天生成阅读 / 点赞 / 评论 / 转发收藏数据。选择「导出成品包」会同时下载正文与成片信息单。</div>
+      <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">取消</button><button class="btn ink" type="submit">确认发布</button></div>
+    </form>`);
+}
+
+function renderDashboard() {
+  const el = document.getElementById('view-dashboard');
+  if (!el) return;
+  ensureStats();
+  const totals = statTotals();
+  const published = S.data.content.filter((c) => c.status === 'published');
+  const series = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = dayKey(d);
+    let views = 0;
+    S.data.stat.forEach((s) => { if (s.date === key) views += num(s.views); });
+    series.push({ key, views, label: `${d.getMonth() + 1}-${pad2(d.getDate())}` });
+  }
+  const maxSeries = Math.max(1, ...series.map((s) => s.views));
+  const W = 640, H = 210, left = 44, right = 16, top = 18, bottom = 42;
+  const plotW = W - left - right, plotH = H - top - bottom;
+  const pts = series.map((s, i) => {
+    const x = left + (plotW * i) / Math.max(1, series.length - 1);
+    const y = top + plotH - (s.views / maxSeries) * plotH;
+    return { x, y, ...s };
+  });
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${top + plotH} L${pts[0].x.toFixed(1)},${top + plotH} Z`;
+  const grid = [0, 0.5, 1].map((r) => {
+    const y = top + plotH * r;
+    return `<line x1="${left}" y1="${y}" x2="${W - right}" y2="${y}" stroke="#d6c4a8" stroke-width="1" stroke-dasharray="3 4" opacity=".55"/>`;
+  }).join('');
+  const xLabels = pts.map((p) => `<text x="${p.x}" y="${H - 14}" text-anchor="middle" font-size="9" font-family="Consolas,monospace" fill="#8d7a61">${p.label}</text>`).join('');
+  const dots = pts.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="#a83e22" stroke="#fffaf0" stroke-width="1.5"/>`).join('');
+
+  const lineAgg = LINE_KEYS.map((k) => {
+    let views = 0, count = 0;
+    S.data.content.filter((c) => c.status === 'published' && c.line === k).forEach((c) => {
+      const s = latestStat(c.rid);
+      if (s) { views += num(s.views); count += 1; }
+    });
+    return { k, l: LINES[k], views, count };
+  });
+  const maxLine = Math.max(1, ...lineAgg.map((x) => x.views));
+  const bars = lineAgg.map((x) => `<div class="bar-row"><div class="lbl"><i style="--tone:${x.l.tone};background:${x.l.tone}"></i>${x.l.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(x.views / maxLine) * 100}%;background:${x.l.tone}"></div></div><div class="val">${fmt(x.views)}</div></div>`).join('');
+
+  const bestLine = lineAgg.slice().sort((a, b) => b.views - a.views)[0];
+  const hourAgg = {};
+  pubRecords().forEach((p) => {
+    const c = findRow('content', p.content_id);
+    const s = c ? latestStat(c.rid) : null;
+    if (!s) return;
+    const h = new Date(p.published_at).getHours();
+    if (!hourAgg[h]) hourAgg[h] = { sum: 0, n: 0 };
+    hourAgg[h].sum += num(s.views); hourAgg[h].n += 1;
+  });
+  const bestHour = Object.entries(hourAgg).map(([h, v]) => ({ h: Number(h), avg: v.sum / v.n })).sort((a, b) => b.avg - a.avg)[0];
+  const platformAgg = {};
+  pubRecords().forEach((p) => {
+    const c = findRow('content', p.content_id);
+    const s = c ? latestStat(c.rid) : null;
+    if (!s) return;
+    if (!platformAgg[p.platform]) platformAgg[p.platform] = { sum: 0, n: 0 };
+    platformAgg[p.platform].sum += num(s.views); platformAgg[p.platform].n += 1;
+  });
+  const bestPlatform = Object.entries(platformAgg).map(([p, v]) => ({ p, avg: v.sum / v.n })).sort((a, b) => b.avg - a.avg)[0];
+  const interactions = totals.likes + totals.comments + totals.shares + totals.favorites;
+  const rate = totals.views ? (interactions / totals.views) * 100 : 0;
+  const weekPubs = pubRecords().filter((p) => Date.now() - Date.parse(p.published_at) < 7 * 86400000).length;
+
+  const tableRows = published.map((c) => {
+    const s = latestStat(c.rid);
+    const plats = [...new Set(pubRecords().filter((p) => p.content_id === c.rid).map((p) => p.platform))].join(' / ');
+    return `<tr><td><div class="t-title">${esc(c.title)}</div></td><td>${lineTag(c.line)}</td><td>${plats ? plats.split(' / ').map(platformTag).join(' ') : '<span class="muted">—</span>'}</td><td class="num">${s ? fmt(s.views) : '—'}</td><td class="num">${s ? fmt(s.likes) : '—'}</td><td class="num">${s ? fmt(s.comments) : '—'}</td><td class="num">${s ? fmt(s.shares) : '—'}</td><td class="num">${s ? fmt(s.favorites) : '—'}</td><td class="mono" style="font-size:9px">${s ? esc(s.date) : '—'}</td></tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <section class="section" style="padding-top:22px">
+      <div class="sec-head"><div class="sec-title"><h2>数据看板</h2><span class="rule">last 7 days</span></div><div class="sec-sub">发布后按天生成 · 当前为本地模拟数据引擎</div></div>
+      <div class="dash-kpis">
+        <div class="kpi k1"><span class="idx">01</span><div class="kpi-num">${fmt(totals.views)}</div><div class="kpi-label">总阅读</div><div class="kpi-note">${published.length} 条已发布内容</div></div>
+        <div class="kpi k2"><span class="idx">02</span><div class="kpi-num">${fmt(totals.likes)}</div><div class="kpi-label">总点赞</div><div class="kpi-note">互动率 ${rate.toFixed(1)}%</div></div>
+        <div class="kpi k3"><span class="idx">03</span><div class="kpi-num">${fmt(totals.comments)}</div><div class="kpi-label">总评论</div><div class="kpi-note">转发收藏 ${fmt(totals.shares + totals.favorites)}</div></div>
+        <div class="kpi k4"><span class="idx">04</span><div class="kpi-num">${weekPubs}<span class="unit">条</span></div><div class="kpi-label">近 7 天发布</div><div class="kpi-note">连续更新 ${streakDays()} 天</div></div>
+      </div>
+      <div class="dash-grid">
+        <div class="panel">
+          <div class="panel-head"><h3>产线表现对比</h3><span class="hint">按最新一条数据汇总阅读</span></div>
+          <div class="panel-body"><div class="bars">${bars}</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>近 7 天阅读趋势</h3><span class="hint">每日新增</span></div>
+          <div class="panel-body" style="padding:10px 12px 4px">
+            <svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="近七天阅读趋势">
+              <defs><linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a83e22" stop-opacity=".18"/><stop offset="100%" stop-color="#a83e22" stop-opacity="0"/></linearGradient></defs>
+              ${grid}
+              <path d="${area}" fill="url(#trendFill)"/>
+              <path d="${line}" fill="none" stroke="#a83e22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              ${dots}${xLabels}
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="dash-grid" style="margin-top:16px">
+        <div class="panel">
+          <div class="panel-head"><h3>排期洞察</h3><span class="hint">从发布记录与数据反推</span></div>
+          <div class="panel-body"><div class="insight-list">
+            <div class="insight"><b>${bestLine && bestLine.views ? bestLine.l.name + '是当前的阅读主力' : '还没有足够的数据'}</b><span>${bestLine && bestLine.views ? `累计 ${fmt(bestLine.views)} 阅读，占全部产线的 ${(bestLine.views / Math.max(1, lineAgg.reduce((n, x) => n + x.views, 0)) * 100).toFixed(0)}%。下一轮可以优先排这条产线。` : '先发布 2–3 条内容，这里会给出产线对比。'}</span></div>
+            <div class="insight olive"><b>${bestHour ? `最佳发布时段：${bestHour.h}:00 前后` : '还没有可比较的时段'}</b><span>${bestHour ? `这个时段的平均阅读约 ${fmt(Math.round(bestHour.avg))}，高于其他时段。` : '登记更多发布记录后，会按小时聚合阅读表现。'}</span></div>
+            <div class="insight blue"><b>${bestPlatform ? `平台偏好：${bestPlatform.p}` : '平台数据待积累'}</b><span>${bestPlatform ? `${bestPlatform.p} 的平均阅读约 ${fmt(Math.round(bestPlatform.avg))}，可以优先把同产线的内容发到这里。` : '不同平台的读者偏好不同，多登记几次就能看出差异。'}</span></div>
+            <div class="insight gold"><b>连续更新 ${streakDays()} 天，本周发布 ${weekPubs} 条</b><span>保持节奏比单条爆款更重要。发布记录按天去重，今天还没发就会从昨天开始往前数。</span></div>
+          </div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>内容明细</h3><span class="hint">最新一天的累计值</span></div>
+          <div class="panel-body" style="padding:0">
+            ${published.length ? `<div style="overflow:auto"><table class="data"><thead><tr><th>内容</th><th>产线</th><th>平台</th><th class="right">阅读</th><th class="right">点赞</th><th class="right">评论</th><th class="right">转发</th><th class="right">收藏</th><th>更新</th></tr></thead><tbody>${tableRows}</tbody></table></div>` : emptyState('还没有发布数据', '内容发布后，这里会按天累积阅读与互动。')}
+          </div>
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderSettings() {
+  const el = document.getElementById('view-settings');
+  if (!el) return;
+  const online = S.cloud.status === 'online';
+  const rows = TABLES.reduce((n, t) => n + S.data[t].length, 0);
+  const tableRows = TABLES.map((t) => {
+    const last = S.data[t].reduce((m, r) => ((r.updatedAt || '') > m ? r.updatedAt : m), '');
+    return `<div class="set-row"><span class="k">${TABLE_LABEL[t]} <span class="mono muted" style="font-size:9px">${t}</span></span><span class="v"><b>${S.data[t].length}</b> 行 · ${last ? esc(relTime(last)) : '—'}</span></div>`;
+  }).join('');
+  const nextHot = nextHotAt();
+  const mins = Math.max(0, Math.ceil((nextHot - Date.now()) / 60000));
+  el.innerHTML = `
+    <section class="section" style="padding-top:22px">
+      <div class="sec-head"><div class="sec-title"><h2>系统设置</h2><span class="rule">preferences</span></div><div class="sec-sub">本地优先 · 在线存储 · 双向同步</div></div>
+      <div class="settings-grid">
+        <div class="set-card">
+          <h3>云同步</h3>
+          <div class="desc">7 张数据表写入 Cloudflare D1；同一账号在多设备登录即可双向同步。写入冲突按“更新时间较新者优先”处理。</div>
+          <div class="sync-banner ${online ? 'online' : S.cloud.status === 'offline' ? 'offline' : ''}"><span class="dot"></span><div><div class="t">${online ? '已连接 · @' + esc(cloudLabel()) : S.cloud.status === 'offline' ? '云端离线' : '本地模式'}</div><div class="s">${online ? '上次同步 ' + esc(S.meta.lastSync ? fmtTime(S.meta.lastSync) : '—') : S.cloud.status === 'offline' ? '本地数据已保留，点击同步重试' : '登录后开启在线存储'}</div></div></div>
+          <div class="set-row"><span class="k">同步地址</span><span class="v">${esc(apiOrigin())}</span></div>
+          <div class="set-row"><span class="k">本地行数</span><span class="v">${rows} 行 · 待推送 ${S.dirty.length}</span></div>
+          <div class="set-row"><span class="k">自动同步</span><span class="v">每 30 秒 · 切回页面立即同步</span></div>
+          <div class="cloud-actions">
+            ${S.cloud.user ? `<button class="btn ink" data-action="sync-now">立即同步</button><button class="btn" data-action="account">账号</button><button class="btn danger" data-action="logout">退出</button>` : `<button class="btn ink wide" data-action="account">登录 / 注册云同步</button>`}
+          </div>
+        </div>
+        <div class="set-card">
+          <h3>大模型</h3>
+          <div class="desc">不填 API Key 时使用内置本地模拟引擎，所有产线都能出稿；填入 OpenAI 兼容接口后，任务会优先调用真实模型。Key 只保存在本机 localStorage，不会写入云端，也不会发给我们。</div>
+          <form data-form="llm">
+            <div class="field"><label>API Base <span class="opt">兼容 OpenAI</span></label><input name="apiBase" value="${esc(S.settings.apiBase)}" placeholder="https://api.openai.com/v1"></div>
+            <div class="field"><label>API Key</label><input name="apiKey" type="password" value="${esc(S.settings.apiKey)}" placeholder="sk-...（留空则使用本地引擎）" autocomplete="off"></div>
+            <div class="field"><label>模型</label><input name="model" value="${esc(S.settings.model)}" placeholder="gpt-4o-mini"></div>
+            <div class="field"><label>语气</label><select name="tone">${['克制', '锋利', '温柔', '幽默'].map((x) => `<option ${S.settings.tone === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+            <div class="form-actions"><button class="btn ghost" type="button" data-action="llm-test">测试连接</button><button class="btn ink" type="submit">保存设置</button></div>
+          </form>
+          <div class="api-note">当前引擎：${S.settings.apiKey ? '真实大模型 · ' + esc(S.settings.model || '默认模型') : '本地模拟引擎（无需联网）'}</div>
+        </div>
+        <div class="set-card">
+          <h3>热点雷达</h3>
+          <div class="desc">每小时从 B 站热搜和百度热搜联网抓取一轮（Worker 缓存 10 分钟），按热度排序；联网失败时依次回退到本机 spark_feed.js 和离线库存。数据落在「热点池」表，可转成选题进入生产。</div>
+          <div class="set-row"><span class="k">上次抓取</span><span class="v">${S.meta.lastHotAt ? esc(fmtTime(S.meta.lastHotAt)) : '—'}</span></div>
+          <div class="set-row"><span class="k">数据来源</span><span class="v">${esc(hotSourceLabel())}</span></div>
+          <div class="set-row"><span class="k">下一轮</span><span class="v">${mins > 0 ? mins + ' 分钟后' : '即将抓取'}</span></div>
+          <div class="set-row"><span class="k">热点池</span><span class="v">${S.data.hot.length} 条 · 今日 ${todayHot().length} 条</span></div>
+          <div class="cloud-actions"><button class="btn ink" data-action="hot-refresh">立即抓取</button><button class="btn" data-action="goto-topics">去看热点榜</button></div>
+          <div class="api-note">${S.meta.hotError ? '最近一次回退原因：' + esc(S.meta.hotError) : '联网接口：' + esc(apiOrigin()) + '/api/nm/hot/live'}</div>
+        </div>
+        <div class="set-card">
+          <h3>数据表</h3>
+          <div class="desc">七张表与页面视图一一对应；本地先写，登录后自动推送，云端更新会在下次拉取时合并。</div>
+          <div class="table-counts">${tableRows}</div>
+        </div>
+        <div class="set-card">
+          <h3>数据导入 / 导出</h3>
+          <div class="desc">导出为 JSON，包含 7 张表与时间戳，不包含 API Key 和登录令牌。导入按 rid 合并，较新的记录会覆盖较旧的记录，并进入待推送队列。</div>
+          <div class="set-row"><span class="k">导出</span><span class="v">${rows} 行</span></div>
+          <div class="import-row"><button class="btn" data-action="export-data">导出 JSON</button><button class="btn" data-action="import-data">导入 JSON</button></div>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+          <div class="api-note">导入不会删除现有数据；只是按主键合并。建议先导出一次做备份。</div>
+        </div>
+        <div class="set-card">
+          <h3>关于</h3>
+          <div class="desc">「新媒体工作台——一个人的 AI 内容工厂」是一个自包含的单页应用：无外部 CDN、无第三方字体，所有 CSS / JS 都在这一个文件里。</div>
+          <div class="set-row"><span class="k">版本</span><span class="v">v1.0 · 2026-10</span></div>
+          <div class="set-row"><span class="k">本地模式</span><span class="v">localStorage · 离线可用</span></div>
+          <div class="set-row"><span class="k">在线模式</span><span class="v">Worker + D1 · 7 张 nm_* 表</span></div>
+          <div class="set-row"><span class="k">数据引擎</span><span class="v">${S.settings.apiKey ? '真实大模型 + 本地数据模拟' : '本地模拟引擎'}</span></div>
+        </div>
+      </div>
+    </section>`;
+}
+
+function exportAllData() {
+  const payload = {
+    app: '新媒体工作台',
+    version: 1,
+    exportedAt: nowIso(),
+    data: S.data,
+    meta: { seededAt: S.meta.seededAt, lastHotAt: S.meta.lastHotAt, demo: S.meta.demo },
+  };
+  downloadText(`新媒体工作台-数据-${todayKey()}.json`, JSON.stringify(payload, null, 2));
+  toast('已导出 JSON 备份', 'ok');
+}
+
+async function importAllData(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const p = JSON.parse(text);
+    if (!p || !p.data || typeof p.data !== 'object') throw new Error('文件结构不对');
+    let merged = 0;
+    for (const t of TABLES) {
+      for (const raw of (Array.isArray(p.data[t]) ? p.data[t] : [])) {
+        const row = normalizeRow(t, raw);
+        if (!row) continue;
+        const local = findRow(t, row.rid);
+        if (!local || row.updatedAt > local.updatedAt) {
+          const i = S.data[t].findIndex((r) => r.rid === row.rid);
+          if (i >= 0) S.data[t][i] = row; else S.data[t].push(row);
+          markDirty(t, row.rid, row.updatedAt, false, true);
+          merged += 1;
+        }
+      }
+    }
+    ensureStats();
+    saveLocal();
+    render();
+    toast(`导入完成，合并 ${merged} 条记录`, 'ok');
+  } catch (e) {
+    toast('导入失败：' + (e.message || '文件无法解析'), 'bad');
+  }
+}
+
+async function testLLM() {
+  if (!S.settings.apiKey) { toast('还没有填 API Key，当前使用本地模拟引擎', 'warn'); return; }
+  const base = (S.settings.apiBase || 'https://api.openai.com/v1').replace(/\/+$/, '');
+  toast('正在测试大模型连接…', '');
+  try {
+    const res = await fetch(base + '/models', { headers: { authorization: 'Bearer ' + S.settings.apiKey } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    toast('连接正常，真实大模型可用', 'ok');
+  } catch (e) {
+    toast('连接失败：' + (e.message || '网络或接口地址不对'), 'bad');
+  }
+}
+
+/* ---------------- 弹窗 / 提示 / 事件 ---------------- */
+function openModal(title, stamp, body) {
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="modal-back"><div class="modal" role="dialog" aria-modal="true">
+    <button class="modal-x" data-action="close-modal" aria-label="关闭">×</button>
+    <div class="modal-head"><div class="stamp">${esc(stamp || 'Workbench')}</div><h3>${esc(title)}</h3></div>
+    <div class="modal-body">${body}</div>
+  </div></div>`;
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  const root = document.getElementById('modalRoot');
+  if (root) root.innerHTML = '';
+  document.body.style.overflow = '';
+}
+function toast(msg, kind) {
+  const root = document.getElementById('toastRoot');
+  if (!root) return;
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.textContent = msg;
+  el.style.transition = 'opacity .22s ease, transform .22s ease';
+  root.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(8px)';
+    setTimeout(() => el.remove(), 240);
+  }, 2800);
+}
+function formError(form, msg) {
+  const err = form.querySelector('.form-error');
+  if (err) { err.textContent = msg; err.classList.add('show'); }
+  return false;
+}
+function confirmDialog(title, text, yesLabel, fn) {
+  S._confirm = fn;
+  openModal(title, 'Confirm', `<div class="confirm-line">${text}</div>
+    <div class="form-actions"><button class="btn ghost" data-action="close-modal">取消</button><button class="btn accent" data-action="confirm-yes">${esc(yesLabel || '确认')}</button></div>`);
+}
+
+function openNewTopicModal() {
+  openModal('登记新选题', 'Topic / New', `
+    <form data-form="new-topic">
+      <div class="form-error"></div>
+      <div class="field"><label>选题标题</label><input name="title" maxlength="80" placeholder="一句话说清楚这条内容要讲什么"></div>
+      <div class="field"><label>产线</label><select name="line">${LINE_KEYS.map((k) => `<option value="${k}" ${k === 'long' ? 'selected' : ''}>${LINES[k].name} · ${LINES[k].desc}</option>`).join('')}</select></div>
+      <div class="field"><label>备注 <span class="opt">选填</span></label><textarea name="note" maxlength="300" placeholder="切入角度、必须包含的要点、结尾方向"></textarea></div>
+      <div class="field"><label>来源 <span class="opt">选填</span></label><input name="source" maxlength="40" placeholder="例如：B站热搜 / 自己的观察"></div>
+      <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">取消</button><button class="btn ink" type="submit">加入选题池</button></div>
+    </form>`);
+}
+
+function openLineChooser() {
+  openModal('选择产线', 'Production / Choose Line', `
+    <div class="radio-grid">
+      ${LINE_KEYS.map((k) => `<button class="radio-card" data-action="line-new" data-line="${k}"><span class="r"></span><span><b style="font-family:var(--serif);font-size:13px">${LINES[k].name}</b><br><span class="mono muted" style="font-size:9px">${LINES[k].desc}</span></span></button>`).join('')}
+    </div>
+    <div class="modal-note">任务会从选题池里选一条选题，自动安排一个当前空闲的 IP，然后异步推进到「待把关」。</div>`);
+}
+
+function hotToTopic(hotId) {
+  const h = findRow('hot', hotId);
+  if (!h) return;
+  const line = /小红书/.test(h.platform) ? 'short' : /抖音/.test(h.platform) ? 'drama' : /B站|视频号/.test(h.platform) ? 'voiceover' : 'long';
+  const existing = S.data.topic.find((t) => t.title === h.title || t.hot_id === h.rid);
+  if (existing) {
+    h.status = 'used';
+    h.updatedAt = nowIso();
+    upsertLocal('hot', h, { dirty: true, stamp: false, user: true });
+    toast('这条热点已经在选题池里了', 'warn');
+    render();
+    return;
+  }
+  const topic = normalizeRow('topic', {
+    rid: `topic|hot|${h.rid}`, updatedAt: nowIso(), title: h.title, line,
+    note: `来自${h.platform}热点，热度 ${fmt(h.heat)}。建议从一个具体的人或场景切入。`,
+    source: h.platform, hot_id: h.rid, status: 'todo', created_at: nowIso(),
+  });
+  upsertLocal('topic', topic, { dirty: true, stamp: false, user: true });
+  h.status = 'used';
+  h.updatedAt = nowIso();
+  upsertLocal('hot', h, { dirty: true, stamp: false, user: true });
+  toast('已转成选题：' + h.title.slice(0, 18), 'ok');
+  render();
+}
+
+function bindEvents() {
+  document.addEventListener('click', (e) => {
+    const nav = e.target.closest('[data-nav]');
+    if (nav) { goView(nav.dataset.nav); return; }
+    const backdrop = e.target.classList && e.target.classList.contains('modal-back');
+    if (backdrop) { closeModal(); return; }
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+    const id = el.dataset.id;
+    switch (action) {
+      case 'close-modal': closeModal(); break;
+      case 'new-topic': openNewTopicModal(); break;
+      case 'line-choose': openLineChooser(); break;
+      case 'line-new': openNewTaskModal(el.dataset.line || 'long'); break;
+      case 'ip-new': openIpModal(''); break;
+      case 'ip-edit': openIpModal(id); break;
+      case 'ip-del': {
+        const ip = findRow('ip', id);
+        if (!ip) break;
+        if (ipLocked(ip)) { toast('这个 IP 正在出演，完成把关后才能删除', 'warn'); break; }
+        confirmDialog('删除 IP 形象', `确定删除「${esc(ip.name)}」？已生成的内容会保留，但不再关联这个 IP。`, '删除', () => {
+          deleteLocal('ip', id, { user: true });
+          toast('IP 已删除', 'ok');
+          render();
+        });
+        break;
+      }
+      case 'topic-filter': S.ui.topicFilter = el.dataset.filter; renderTopics(); break;
+      case 'topic-del': {
+        const t = findRow('topic', id);
+        if (!t) break;
+        const active = S.data.task.some((x) => x.topic_id === id && (x.status === 'queued' || x.status === 'running'));
+        if (active) { toast('这个选题有任务正在运行，先等它完成', 'warn'); break; }
+        confirmDialog('删除选题', `确定删除「${esc(t.title)}」？关联任务和成品会保留，可在工厂与草稿箱继续查看。`, '删除', () => {
+          deleteLocal('topic', id, { user: true });
+          toast('选题已删除', 'ok');
+          render();
+        });
+        break;
+      }
+      case 'hot-convert': hotToTopic(id); break;
+      case 'hot-refresh': {
+        if (hotBusy) { toast('正在联网抓取，稍等片刻', 'warn'); break; }
+        const label = el.textContent;
+        el.disabled = true;
+        el.textContent = '抓取中…';
+        refreshHot(true).then((res) => {
+          if (!res || res.busy) { toast('正在联网抓取，稍等片刻', 'warn'); return; }
+          const msg = res.mode === 'live'
+            ? `已联网抓取，新增 ${res.added} 条，更新 ${res.updated} 条热度`
+            : res.mode === 'spark'
+              ? `联网接口不可用，已从本机 spark_feed 补货（新增 ${res.added} 条）`
+              : `联网与本机抓取都不可用，已用离线热点补位（新增 ${res.added} 条）`;
+          toast(msg, res.mode === 'offline' ? 'warn' : 'ok');
+          render();
+        }).catch((err) => {
+          el.disabled = false;
+          el.textContent = label;
+          toast('热点抓取失败：' + (err.message || '未知错误'), 'warn');
+        });
+        break;
+      }
+      case 'task-new': {
+        const topic = findRow('topic', id);
+        if (!topic) break;
+        const active = S.data.task.find((x) => x.topic_id === id && (x.status === 'queued' || x.status === 'running'));
+        if (active) { toast('这个选题已经有一个进行中的任务', 'warn'); goView('factory'); break; }
+        const latest = S.data.content.filter((x) => x.topic_id === id).sort((a, b) => (b.finished_at || '').localeCompare(a.finished_at || ''))[0];
+        createTask(topic, { prevContentId: latest ? latest.rid : '' });
+        break;
+      }
+      case 'task-start': { const t = findRow('task', id); startTask(t); render(); break; }
+      case 'task-retry': retryTask(findRow('task', id)); break;
+      case 'goto-factory': goView('factory'); break;
+      case 'goto-topics': goView('topics'); break;
+      case 'open-draft': {
+        if (!id || !findRow('content', id)) { toast('找不到对应的成品', 'warn'); break; }
+        S.ui.draftFilter = 'all';
+        S.ui.draftId = id;
+        goView('drafts');
+        break;
+      }
+      case 'draft-filter': S.ui.draftFilter = el.dataset.filter; S.ui.draftId = ''; renderDrafts(); break;
+      case 'draft-select': S.ui.draftId = id; renderDrafts(); break;
+      case 'draft-approve': approveContent(id); break;
+      case 'draft-reject': openRejectModal(id); break;
+      case 'draft-regen': {
+        const c = findRow('content', id);
+        if (!c) break;
+        confirmDialog('再做一版', `会用同一选题和 IP 重新跑一遍「${esc(lineOf(c.line).name)}」，旧版本保留。`, '开始生成', () => regenerateContent(id));
+        break;
+      }
+      case 'draft-export': exportKit(id); break;
+      case 'publish-open': openPublishModal(id); break;
+      case 'pick-radio': {
+        const input = el.querySelector('input[type=radio]');
+        if (input) {
+          input.checked = true;
+          const grid = el.parentElement;
+          if (grid) grid.querySelectorAll('.radio-card').forEach((x) => x.classList.toggle('on', x === el));
+        }
+        break;
+      }
+      case 'account': openAccountModal(S.ui.authMode || 'login'); break;
+      case 'auth-mode': S.ui.authMode = el.dataset.mode; openAccountModal(el.dataset.mode); break;
+      case 'logout': logoutCloud(); break;
+      case 'sync-now': syncNow(); break;
+      case 'llm-test': testLLM(); break;
+      case 'export-data': exportAllData(); break;
+      case 'import-data': { const f = document.getElementById('importFile'); if (f) f.click(); break; }
+      case 'confirm-yes': { const fn = S._confirm; S._confirm = null; closeModal(); if (fn) fn(); break; }
+      default: break;
+    }
+  });
+
+  document.addEventListener('submit', async (e) => {
+    const form = e.target.closest('form[data-form]');
+    if (!form) return;
+    e.preventDefault();
+    const kind = form.dataset.form;
+    if (kind === 'login' || kind === 'register') { submitAuth(form); return; }
+    if (kind === 'new-topic') {
+      const title = form.title.value.trim();
+      if (!title) return formError(form, '请填写选题标题');
+      const t = normalizeRow('topic', {
+        rid: uid('topic'), updatedAt: nowIso(), title, line: form.line.value,
+        note: form.note.value.trim(), source: form.source.value.trim(), hot_id: '', status: 'todo', created_at: nowIso(),
+      });
+      upsertLocal('topic', t, { dirty: true, stamp: false, user: true });
+      closeModal();
+      S.ui.topicFilter = 'all';
+      goView('topics');
+      toast('新选题已加入', 'ok');
+      return;
+    }
+    if (kind === 'new-task') {
+      const topic = findRow('topic', form.topic.value);
+      if (!topic) return formError(form, '请选择一个选题');
+      const active = S.data.task.find((x) => x.topic_id === topic.rid && (x.status === 'queued' || x.status === 'running'));
+      if (active) return formError(form, '这个选题已经有一个进行中的任务');
+      const latest = S.data.content.filter((x) => x.topic_id === topic.rid).sort((a, b) => (b.finished_at || '').localeCompare(a.finished_at || ''))[0];
+      const line = form.line.value;
+      const ipId = form.ip.value;
+      closeModal();
+      createTask(topic, { line, ipId, prevContentId: latest ? latest.rid : '' });
+      return;
+    }
+    if (kind === 'ip') {
+      const name = form.name.value.trim();
+      if (!name) return formError(form, '请填写 IP 名称');
+      const id = form.dataset.id;
+      const old = id ? findRow('ip', id) : null;
+      if (old && ipLocked(old)) return formError(form, '这个 IP 正在出演，暂时不能修改');
+      if (old) {
+        old.name = name;
+        old.persona = form.persona.value.trim();
+        old.config = form.config.value.trim();
+        old.updatedAt = nowIso();
+        upsertLocal('ip', old, { dirty: true, stamp: false, user: true });
+      } else {
+        const ip = normalizeRow('ip', {
+          rid: uid('ip'), updatedAt: nowIso(), name, persona: form.persona.value.trim(),
+          config: form.config.value.trim(), status: 'idle', appearances: '0', created_at: nowIso(),
+        });
+        upsertLocal('ip', ip, { dirty: true, stamp: false, user: true });
+      }
+      closeModal();
+      toast(old ? 'IP 已保存' : 'IP 已创建', 'ok');
+      render();
+      return;
+    }
+    if (kind === 'reject') {
+      const id = form.dataset.id;
+      const note = form.note.value.trim();
+      if (!note) return formError(form, '写一句把关意见，下一版才知道改什么');
+      rejectContent(id, note);
+      return;
+    }
+    if (kind === 'publish') {
+      const id = form.dataset.id;
+      const fd = new FormData(form);
+      const platform = fd.get('platform');
+      const method = fd.get('method');
+      if (!platform || !method) return formError(form, '请选择平台和发布方式');
+      publishContent(id, String(platform), String(method));
+      return;
+    }
+    if (kind === 'llm') {
+      S.settings.apiBase = form.apiBase.value.trim();
+      S.settings.apiKey = form.apiKey.value.trim();
+      S.settings.model = form.model.value.trim() || 'gpt-4o-mini';
+      S.settings.tone = form.tone.value;
+      saveLocal();
+      toast('设置已保存，下一条任务生效', 'ok');
+      renderSettings();
+      return;
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 'importFile') {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      importAllData(file);
+      return;
+    }
+    if (e.target.matches && e.target.matches('.radio-grid input[type=radio]')) {
+      const grid = e.target.closest('.radio-grid');
+      if (grid) grid.querySelectorAll('.radio-card').forEach((x) => x.classList.toggle('on', x.contains(e.target)));
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+}
+
+/* ---------------- 启动 ---------------- */
+function startTimers() {
+  setInterval(tickTasks, 1000);
+  setInterval(() => {
+    if (ensureHot()) {
+      saveLocal();
+      if (S.ui.view === 'topics') renderTopics();
+      else updateSyncUI();
+    }
+  }, 60000);
+  setInterval(() => {
+    if (ensureStats() && S.ui.view === 'dashboard') renderDashboard();
+  }, 600000);
+  setInterval(renderNav, 60000);
+  startCloudTimers();
+}
+
+function init() {
+  loadLocal();
+  ensureSeed();
+  ensureHot();
+  ensureStats();
+  publishShellSummary();
+  const hash = (location.hash || '').replace(/^#\/?/, '');
+  if (VIEWS.some((v) => v.key === hash)) S.ui.view = hash;
+  bindEvents();
+  render();
+  startTimers();
+  if (S.settings.token || S.cloud.user) checkCloudAuth();
+  else {
+    apiFetch('/api/auth/me').then((me) => {
+      S.cloud.user = me;
+      connectCloud({ silent: true });
+    }).catch((e) => {
+      S.cloud.status = e.status === 401 ? 'local' : 'offline';
+      S.cloud.error = e.code || e.message;
+      updateSyncUI();
+    });
+  }
+  window.addEventListener('hashchange', () => {
+    const k = (location.hash || '').replace(/^#\/?/, '');
+    if (VIEWS.some((v) => v.key === k) && k !== S.ui.view) { S.ui.view = k; render(); }
+  });
+}
+
+init();
+
+</script>
+</body>
+</html>

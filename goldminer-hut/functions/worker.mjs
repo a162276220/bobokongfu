@@ -6,6 +6,7 @@
    数据面仍是那份没改过的 handler.mjs —— 这里只把「身份从哪来」换成会话。 */
 
 import { handleApp } from './handler.mjs';
+import { handleNewmedia, refreshHotLive } from './newmedia.mjs';
 import { UserContextError } from './auth.mjs';
 import { openDb } from '../backend/d1-db.mjs';
 import {
@@ -112,7 +113,9 @@ async function handleMe(db, request) {
 }
 
 
-async function route(pathname, { env, request, secure }) {
+async function route(url, { env, request, secure }) {
+  const pathname = url.pathname;
+  if (pathname.startsWith('/api/nm/')) return handleNewmedia({ request, env, url });
   if (pathname === '/api/app') return handleDataPlane(env.DB, request);
   if (pathname === '/api/health') return json({ ok: true });
   if (pathname === '/api/auth/me') return handleMe(env.DB, request);
@@ -133,7 +136,7 @@ export default {
       // 本地 wrangler dev 走 http，带 Secure 的 cookie 浏览器不会存，所以只在 https 上加。
       const secure = url.protocol === 'https:';
       try {
-        return withCors(await route(url.pathname, { env, request, secure }), cors);
+        return withCors(await route(url, { env, request, secure }), cors);
       } catch (e) {
         if (e instanceof AuthError) return withCors(json({ error: e.code }, e.status), cors);
         if (e instanceof UserContextError) return withCors(json({ error: e.code }, e.status || 401), cors);
@@ -144,5 +147,12 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
+  },
+
+  /* 每 10 分钟把联网热点缓存焐热；抓取失败不影响任何请求路径。 */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(refreshHotLive(env).catch((e) => {
+      console.error('hot_refresh_failed', e && e.message);
+    }));
   },
 };

@@ -55,6 +55,10 @@ function boot({ protocol = 'https:', origin = '', storage = {}, state = FULL_STA
   const listeners = [];
   const els = {};
   const store = new Map(Object.entries(storage));
+  /* 顶部横幅是静态 DOM；给它一个最小替身，验证同步层会不会按状态收起/改写。 */
+  const bannerText = { textContent: '本地模式：数据只存在这台设备的浏览器里，换设备不会同步。' };
+  const banner = { id: 'modeBanner', style: {}, textContent: '', querySelector: (sel) => (sel === '.mb-text' ? bannerText : null) };
+  els.modeBanner = banner;
   const el = (tag) => ({
     tagName: tag, id: '', style: {}, children: [], textContent: '', className: '', innerHTML: '',
     setAttribute() {}, querySelector: () => null, addEventListener() {},
@@ -115,20 +119,38 @@ console.log('\nA. 数据面地址解析');
 {
   const site = boot();
   await site.ctx.gmApiProbe();
-  const q = site.calls.find((c) => c[0] === 'fetch');
+  const q = site.calls.find((c) => c[0] === 'fetch' && c[1].includes('action=query'));
   check('站点模式请求同源 /api/app', q && q[1] === '/api/app?action=query&table=rpt', q && q[1]);
   check('站点模式带 cookie（credentials=same-origin）', q && q[4] === 'same-origin', q && q[4]);
   check('站点模式没有身份时是未登录态', site.ctx.gmSyncState() === 'logged-out', site.ctx.gmSyncState());
+  const mb = site.els.modeBanner;
+  check('未登录时顶部横幅改成可操作文案', mb.style.display !== 'none' && /未登录/.test(mb.querySelector('.mb-text').textContent), mb.querySelector('.mb-text').textContent);
+}
+{
+  const resp = (data) => ({ ok: true, status: 200, json: async () => data });
+  const site = boot({
+    routes: (url) => {
+      if (url.includes('/api/auth/me')) return resp({ user_id: 'u-2', username: '乙' });
+      if (url.includes('action=query')) return resp({ results: [], hasMore: false, nextCursor: null });
+      if (url.includes('/api/app')) return resp({ ok: true });
+      return { ok: false, status: 404, json: async () => ({ error: 'not_found' }) };
+    },
+  });
+  for (let i = 0; i < 12; i++) { await flush(); }
+  check('站点已有 cookie 时启动会识别身份', site.ctx.gmSyncState() === 'synced', site.ctx.gmSyncState());
+  check('已同步时顶部横幅收起', site.els.modeBanner.style.display === 'none', site.els.modeBanner.style.display);
 }
 {
   const file = boot({ protocol: 'file:' });
   check('file:// 且没填 CLOUD_ORIGIN → 本地模式', file.ctx.gmSyncState() === 'local', file.ctx.gmSyncState());
+  const mb = file.els.modeBanner;
+  check('本地模式横幅保留导出/导入提示', mb.style.display !== 'none' && mb.querySelector('.mb-text').textContent.includes('导出备份'), mb.querySelector('.mb-text').textContent);
 }
 {
   const file = boot({ protocol: 'file:', origin: 'https://hut.example', storage: { goldminer_session_v1: 'SESS-FILE' } });
   check('file:// + CLOUD_ORIGIN + 会话令牌 → 已同步', file.ctx.gmSyncState() === 'synced', file.ctx.gmSyncState());
   await file.ctx.gmApiProbe();
-  const q = file.calls.find((c) => c[0] === 'fetch');
+  const q = file.calls.find((c) => c[0] === 'fetch' && c[1].includes('action=query'));
   check('file:// 模式请求绝对地址', q && q[1] === 'https://hut.example/api/app?action=query&table=rpt', q && q[1]);
   check('file:// 模式带 Bearer 会话令牌', q && q[3] === 'Bearer SESS-FILE', q && q[3]);
 }
@@ -138,7 +160,7 @@ console.log('\nA. 数据面地址解析');
     storage: { goldminer_sync_cfg_v1: JSON.stringify({ endpoint: 'http://127.0.0.1:8790/app', token: 'FIXED' }) },
   });
   await custom.ctx.gmApiProbe();
-  const q = custom.calls.find((c) => c[0] === 'fetch');
+  const q = custom.calls.find((c) => c[0] === 'fetch' && c[1].includes('action=query'));
   check('设置页里的接口地址优先级最高', q && q[1] === 'http://127.0.0.1:8790/app?action=query&table=rpt', q && q[1]);
   check('自定义后端用固定令牌', q && q[3] === 'Bearer FIXED', q && q[3]);
   check('自定义后端不带本站 cookie（credentials=omit）', q && q[4] === 'omit', q && q[4]);
@@ -166,10 +188,11 @@ console.log('\nC. 登录序列与轮询');
   const order = t.calls.filter((c) => c[0] === 'drop-snapshot' || c[0] === 'fetch').map((c) => c[0] === 'drop-snapshot' ? 'drop' : c[1].replace('https://hut.example', ''));
   check('登录后写入会话令牌', t.store.get('goldminer_session_v1') === 'SESS-1', t.store.get('goldminer_session_v1'));
   check('登录后指示器为已同步', t.ctx.gmSyncState() === 'synced', t.ctx.gmSyncState());
+  check('启动时先校验已有 cookie', order[0] === '/api/auth/me', order.slice(0, 3));
   check('先丢快照，再拉，最后推',
-    order[0] === '/api/auth/login' && order[1] === '/api/auth/me' && order[2] === 'drop'
-    && order[3] === '/api/app?action=query&table=ast',
-    order.slice(0, 5));
+    order[1] === '/api/auth/login' && order[2] === '/api/auth/me' && order[3] === 'drop'
+    && order[4] === '/api/app?action=query&table=ast',
+    order.slice(0, 6));
   check('快照在第一次数据面请求之前被丢掉',
     order.indexOf('drop') < order.findIndex((u) => u.includes('?action=query') || u === '/api/app'),
     order.slice(0, 6));

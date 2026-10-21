@@ -31,6 +31,7 @@ const MUST_HAVE = [
   'function syncState()',
   'function canSync()',
   'function mountAccountUi()',
+  'function paintModeBanner()',
   'window.gmCloudLogin = cloudLogin;',
 ];
 
@@ -199,7 +200,15 @@ const PATCHES = [
     new: `  function init() {
     try {
       mountAccountUi(); /* 本地模式也要有指示器，让人知道为什么没同步 */
-      if (!online()) { return; } /* file:// 直开且没填 CLOUD_ORIGIN：无数据面，整层停用 */`,
+      if (!online()) { return; } /* file:// 直开且没填 CLOUD_ORIGIN：无数据面，整层停用 */
+      /* 站点里可能已经有 HttpOnly cookie（在新媒体页登录过，或换了设备）：
+         先问一次 /api/auth/me，否则横幅、指示器与首拉都会误判成未登录。 */
+      if (!apiCfg().endpoint) {
+        whoami().then(function (me) {
+          renderAccountChip();
+          if (me) { try { pull().catch(function () {}); } catch (e) {} }
+        }, function () {});
+      }`,
   },
   {
     name: '11. 60s 轮询 + 不可见时暂停',
@@ -374,12 +383,29 @@ const PATCHES = [
         : '已同步到云端。换台设备登录同一账号，看到的就是同一份数据。'));
   }
 
+  /* 顶部横幅是源文件里写死的「本地模式」提示，原来永远不会变。
+     已同步时收起来；未登录时改成可操作的说法；真正的本地模式保留原文案。 */
+  function paintModeBanner() {
+    var el = document.getElementById('modeBanner');
+    if (!el) { return; }
+    var st = syncState();
+    if (st === 'synced') { el.style.display = 'none'; return; }
+    el.style.display = '';
+    var txt = el.querySelector ? el.querySelector('.mb-text') : null;
+    if (!txt) { return; }
+    txt.textContent = st === 'logged-out'
+      ? '未登录：数据暂存在这台设备的浏览器里，登录后才会同步到云端。点左下角「登录 / 注册」开始。'
+      : '本地模式：数据只存在这台设备的浏览器里，换设备不会同步。想多设备同步，先在工作台设置里导出备份，再到新设备导入恢复。';
+  }
+
   function renderAccountChip() {
     if (_chip) {
       var s = chipState();
       _chip.innerHTML = s.icon + '<span>' + acctEsc(s.text) + '</span>';
     }
     renderPanelState();
+    paintModeBanner();
+    if (typeof window.updateSyncPill === 'function') { try { window.updateSyncPill(); } catch (e) {} }
   }
 
   function toggleAccountPanel() {
@@ -460,6 +486,13 @@ const PATCHES = [
         if (apiCfg().endpoint || st === 'synced') { return; }
         submitAccount(_acctTab);
       });
+      var pill = document.getElementById('syncPill');
+      if (pill && !pill.__gmBound) {
+        pill.__gmBound = true;
+        pill.style.cursor = 'pointer';
+        pill.title = '打开云端账号';
+        pill.addEventListener('click', toggleAccountPanel);
+      }
       renderAccountChip();
     } catch (e) { /* 浮层失败不影响页面本身 */ }
   }
@@ -595,6 +628,26 @@ const PATCHES = [
 
   init();
 })();`,
+  },
+  {
+    name: '13. 侧边栏同步指示器按三态显示',
+    old: `  function updateSyncPill() {
+    var t = document.getElementById('syncText'), d = document.getElementById('syncDot');
+    if (!t) return;
+    var online = location.protocol !== 'file:';   // 与同步层 online() 同一判据
+    t.textContent = online ? '云端已同步' : '本地模式';
+    if (d) d.style.background = online ? 'var(--teal)' : 'var(--amber)';
+  }`,
+    new: `  function updateSyncPill() {
+    var t = document.getElementById('syncText'), d = document.getElementById('syncDot');
+    if (!t) return;
+    /* 站点在线 ≠ 已登录：原来只看协议，未登录也显示「云端已同步」。 */
+    var st = (typeof window.gmSyncState === 'function')
+      ? window.gmSyncState()
+      : (location.protocol === 'file:' ? 'local' : 'logged-out');
+    t.textContent = st === 'synced' ? '云端已同步' : (st === 'logged-out' ? '未登录' : '本地模式');
+    if (d) d.style.background = st === 'synced' ? 'var(--teal)' : (st === 'logged-out' ? 'var(--gold)' : 'var(--amber)');
+  }`,
   },
 ];
 
