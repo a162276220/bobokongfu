@@ -3,13 +3,14 @@
    背景：卜卜小屋的源文件还有另一个写者（phase 系列）会整份重写，不能直接改源文件；
    所以和同步层一样，补丁打在 dist/index.html 上。
 
-   做六件事：
+   做七件事：
    1. 把 shell 的 media 页面从旧版 renderMedia 换成 renderMediaShell（iframe 嵌入 /newmedia?embed=1）；
    2. 进入 media 时给 body 加 nm-embed-page，让主内容区让出全部高度、避免双层滚动；
    3. 主壳看板/周报/月报/计划日历改读 nm_shell_summary_v1（新版每次落盘写的只读摘要）；
    4. 旧版简版媒体页保留为独立导航项 media-classic（「媒体流水线」），数据仍走 state.media；
    5. 旧版媒体页的本地模板与真实模型提示词去主题绑定（原模板写死少儿选课场景），把关中心预览渲染 Markdown；
-   6. 任何锚点找不到或重复 → 失败退出，不发布「看着正常、其实没嵌进去」的站点。
+   6. 旧版媒体页的 AI 引擎配置不再被版本迁移清空（migrateState 保留 media），部分填写时明确提示缺什么；
+   7. 任何锚点找不到或重复 → 失败退出，不发布「看着正常、其实没嵌进去」的站点。
 */
 
 const MUST_HAVE = [
@@ -30,6 +31,9 @@ const MUST_HAVE = [
   '热度会过去，结构会留下',
   "'<div class=\"mf-pre\">' + mfMd2Html(c.body",
   '短图文产线输出 JSON',
+  'newState.media = oldState.media || newState.media;',
+  "'已保存 Key · 还差 API Base 才能启用'",
+  "MediaAI.cfg().apiKey || MediaAI.cfg().apiBase ? ''",
 ];
 
 const PATCHES = [
@@ -279,6 +283,31 @@ const PATCHES = [
     name: '21. 短图文预览保留换行',
     old: `        '<div style="flex:1;min-width:0">' + utpEsc(body) + '</div></div>';`,
     new: `        '<div style="flex:1;min-width:0;white-space:pre-line">' + utpEsc(body) + '</div></div>';`,
+  },
+  {
+    name: '22. 版本迁移保留 media（AI 引擎配置不再被清空）',
+    old: `    newState.jianghu = oldState.jianghu || newState.jianghu;
+    newState.version = DATA_VERSION;`,
+    new: `    newState.jianghu = oldState.jianghu || newState.jianghu;
+    /* media 承载媒体流水线（含 AI 引擎配置），版本迁移不能丢 */
+    newState.media = oldState.media || newState.media;
+    newState.version = DATA_VERSION;`,
+  },
+  {
+    name: '23. AI 引擎标签区分部分填写',
+    old: `    label: function () { return this.active() ? ('真实模型 · ' + (this.cfg().model || 'deepseek-chat')) : '本地模板引擎'; },`,
+    new: `    label: function () {
+      const c = this.cfg();
+      if (c.apiBase && c.apiKey) return '真实模型 · ' + (c.model || 'deepseek-chat');
+      if (c.apiKey) return '已保存 Key · 还差 API Base 才能启用';
+      if (c.apiBase) return '已保存 Base · 还差 API Key 才能启用';
+      return '本地模板引擎';
+    },`,
+  },
+  {
+    name: '24. 只填了部分字段时不再显示误导性提示',
+    old: `      (MediaAI.active() ? '' : '（填 API Key 可切真实大模型，不填也能用）') + '</summary>' +`,
+    new: `      (MediaAI.active() || MediaAI.cfg().apiKey || MediaAI.cfg().apiBase ? '' : '（填 API Key 可切真实大模型，不填也能用）') + '</summary>' +`,
   },
 ];
 

@@ -207,6 +207,10 @@ button{font:inherit;color:inherit}
 .icon-btn:hover{border-color:var(--line);background:var(--paper-2);color:var(--accent)}
 
 .hot-list{display:flex;flex-direction:column}
+.hot-seg{display:flex;flex-wrap:wrap;gap:5px;padding:10px 15px 2px}
+.chip{font-family:var(--mono);font-size:9.5px;padding:3px 9px;border:1px solid var(--line-2);border-radius:20px;background:var(--paper-2);color:var(--ink-2);cursor:pointer;transition:.14s}
+.chip:hover{background:var(--sheet)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .hot-item{display:flex;gap:10px;align-items:flex-start;padding:10px 2px;border-bottom:1px dashed var(--line-2)}
 .hot-item:last-child{border-bottom:0}
 .hot-rank{width:20px;flex:0 0 20px;font-family:var(--serif);font-size:15px;font-weight:700;color:var(--ink-3);text-align:center;line-height:1.35}
@@ -664,7 +668,7 @@ let S = {
   dirty: [],
   settings: { ...defaultSettings },
   cloud: { status: 'local', user: null, error: '', busy: false, lastAt: '' },
-  ui: { view: 'topics', topicFilter: 'all', draftFilter: 'review', draftId: '', pubLine: 'all' },
+  ui: { view: 'topics', topicFilter: 'all', hotPlatform: 'all', draftFilter: 'review', draftId: '', pubLine: 'all' },
 };
 
 function normalizeRow(table, r) {
@@ -1083,7 +1087,7 @@ function ensureSeed() {
    Worker 接口不需要登录，本地模式也能拿真热榜；整条链都失败时才退回模拟。 */
 const HOT_TTL_MS = 3600000;
 const HOT_SOURCE_LABEL = {
-  live: '联网 · B站 / 百度',
+  live: '联网 · B站 / 百度 / 微博 / 小红书',
   spark: '本机抓取 · spark_feed',
   offline: '离线库存',
   seed: '演示数据',
@@ -2263,9 +2267,10 @@ function render() {
 }
 
 /* 各来源的热度口径不同（百度动辄 700 万，B 站约 180 万），纯按数值排会只剩百度。
-   每个来源先各保 3 条，其余再按热度补齐。 */
-function topHot(limit) {
+   每个来源先各保 3 条，其余再按热度补齐；选定了来源就只排该来源。 */
+function topHot(limit, plat) {
   const sorted = S.data.hot.slice().sort((a, b) => num(b.heat) - num(a.heat));
+  if (plat && plat !== 'all') return sorted.filter((h) => h.platform === plat).slice(0, limit);
   const platforms = [...new Set(sorted.map((h) => h.platform))].slice(0, 5);
   const picked = [];
   const seen = new Set();
@@ -2316,7 +2321,9 @@ function renderTopics() {
     </article>`;
   }).join('');
 
-  const hot = topHot(12);
+  const hotPlats = [...new Set(S.data.hot.map((h) => h.platform))];
+  const hotFilter = S.ui.hotPlatform !== 'all' && hotPlats.includes(S.ui.hotPlatform) ? S.ui.hotPlatform : 'all';
+  const hot = topHot(hotFilter === 'all' ? 12 : 16, hotFilter);
   const hotItems = hot.map((h, i) => `<div class="hot-item">
     <div class="hot-rank">${String(i + 1).padStart(2, '0')}</div>
     <div class="hot-body">
@@ -2325,6 +2332,11 @@ function renderTopics() {
     </div>
     <div class="hot-act">${h.status === 'used' ? '<span class="label">已转选题</span>' : `<button class="btn tiny" data-action="hot-convert" data-id="${h.rid}">转选题</button>`}</div>
   </div>`).join('');
+  const hotChips = `
+    <div class="hot-seg">
+      <button class="chip ${hotFilter === 'all' ? 'on' : ''}" data-action="hot-platform" data-platform="all">全部</button>
+      ${hotPlats.map((p) => `<button class="chip ${hotFilter === p ? 'on' : ''}" data-action="hot-platform" data-platform="${esc(p)}">${esc(p)}</button>`).join('')}
+    </div>`;
 
   const next = nextHotAt();
   const mins = Math.max(0, Math.ceil((next - Date.now()) / 60000));
@@ -2344,9 +2356,10 @@ function renderTopics() {
         <div class="topic-list">${cards || emptyState('这个筛选下还没有选题', '换个筛选，或登记一条新选题。')}</div>
       </section>
       <aside class="panel hot-panel" style="position:sticky;top:18px">
-        <div class="panel-head"><h3>热点雷达</h3><span class="hint">每小时联网抓取 · B站 / 百度</span></div>
+        <div class="panel-head"><h3>热点雷达</h3><span class="hint">每小时联网抓取 · 多来源</span></div>
+        ${hotChips}
         <div class="panel-body" style="padding-top:4px;padding-bottom:6px">
-          <div class="hot-list">${hotItems || '<div class="hot-empty">热点池为空，点击下方立即抓取。</div>'}</div>
+          <div class="hot-list">${hotItems || `<div class="hot-empty">${hotFilter === 'all' ? '热点池为空，点击下方立即抓取。' : '这个来源暂时没有热点（可能抓取失败），点击下方立即抓取。'}</div>`}</div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 15px;border-top:1px dashed var(--line-2)">
           <span class="mono muted" style="font-size:9px">${mins > 0 ? '下一轮还有 ' + mins + ' 分钟' : '即将抓取'} · ${esc(hotSourceLabel())} · 共 ${S.data.hot.length} 条</span>
@@ -2982,6 +2995,7 @@ function bindEvents() {
         break;
       }
       case 'topic-filter': S.ui.topicFilter = el.dataset.filter; renderTopics(); break;
+      case 'hot-platform': S.ui.hotPlatform = el.dataset.platform; renderTopics(); break;
       case 'topic-del': {
         const t = findRow('topic', id);
         if (!t) break;

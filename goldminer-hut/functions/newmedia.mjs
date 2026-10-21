@@ -188,7 +188,8 @@ async function applyChange(db, owner, ch) {
 }
 
 /* ---------- 联网热榜 ----------
-   抓 B 站热搜的公开 JSON 与百度热搜的公开榜单页。两者都不需要 key。
+   抓 B 站热搜的公开 JSON、百度热搜的公开榜单页、微博热搜（接口→PC 页→移动端三级回退）。
+   小红书没有可匿名访问的公开接口，走热榜聚合服务的回退链。全部不需要 key。
    结果全局缓存 10 分钟：热榜本来就是分钟级更新，没必要每个账号各抓一遍。
    这个接口不读用户数据，所以放在登录校验之前，本地模式也能拿到真热搜。 */
 const HOT_LIVE_TTL_MS = 10 * 60 * 1000;
@@ -198,13 +199,30 @@ const HOT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
 
 const hotNorm = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
 
-async function fetchHotBilibili() {
-  const res = await fetch('https://s.search.bilibili.com/main/hotword', {
-    headers: { 'user-agent': HOT_UA, accept: 'application/json', referer: 'https://www.bilibili.com/' },
+/* 热度格式五花八门：微博 ajax 给数字，PC 页给 "1234567"，聚合器给 "123.4万" 或 "947.5w"。 */
+const parseHotNumber = (v) => {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return 0;
+  let n = parseFloat(s.replace(/[^\d.]/g, ''));
+  if (!isFinite(n)) return 0;
+  if (/亿/.test(s)) n *= 1e8;
+  else if (/[万w]/i.test(s)) n *= 1e4;
+  return Math.round(n);
+};
+
+const hotFetchJson = async (url, headers) => {
+  const res = await fetch(url, {
+    headers: { 'user-agent': HOT_UA, ...headers },
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) throw new Error('bili_http_' + res.status);
-  const data = await res.json();
+  if (!res.ok) throw new Error('http_' + res.status);
+  return res.json();
+};
+
+async function fetchHotBilibili() {
+  const data = await hotFetchJson('https://s.search.bilibili.com/main/hotword', {
+    accept: 'application/json', referer: 'https://www.bilibili.com/',
+  });
   const list = Array.isArray(data && data.list) ? data.list : [];
   const out = [];
   list.forEach((it, i) => {
@@ -218,6 +236,7 @@ async function fetchHotBilibili() {
       rank: i + 1,
     });
   });
+  if (!out.length) throw new Error('bili_empty');
   return out;
 }
 
@@ -243,7 +262,112 @@ async function fetchHotBaidu() {
       rank: out.length + 1,
     });
   }
+  if (!out.length) throw new Error('baidu_empty');
   return out;
+}
+
+async function fetchHotWeibo() {
+  const fails = [];
+
+  /* 1) PC 端 ajax 接口：部分网络环境会 403，所以只是第一跳。 */
+  try {
+    const data = await hotFetchJson('https://weibo.com/ajax/side/hotSearch', {
+      accept: 'application/json', referer: 'https://weibo.com/', 'x-requested-with': 'XMLHttpRequest',
+    });
+    const list = Array.isArray(data && data.data && data.data.realtime) ? data.data.realtime : [];
+    const out = [];
+    list.forEach((it, i) => {
+      if (out.length >= HOT_LIVE_MAX) return;
+      const title = String((it && (it.word || it.note)) || '').replace(/\s+/g, ' ').trim();
+      if (!title || /^(荐|广告)$/.test(title)) return;
+      out.push({ title, platform: '微博热搜', heat: parseHotNumber(it.num), rank: i + 1 });
+    });
+    if (out.length) return out;
+    fails.push('ajax_empty');
+  } catch (e) { fails.push('ajax_' + (e.message || 'fail')); }
+
+  /* 2) PC 榜单页 HTML：匿名可访问的兜底。 */
+  try {
+    const res = await fetch('https://s.weibo.com/top/summary', {
+      headers: { 'user-agent': HOT_UA, accept: 'text/html', referer: 'https://weibo.com/' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) throw new Error('http_' + res.status);
+    const html = await res.text();
+    const re = /<td class="td-02">([\s\S]*?)<\/td>/g;
+    const out = [];
+    const seen = new Set();
+    let m;
+    while ((m = re.exec(html)) && out.length < HOT_LIVE_MAX) {
+      const cell = m[1];
+      const title = cell.replace(/<span>[\s\S]*$/, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      const span = /<span>([^<]*)<\/span>/.exec(cell);
+      if (!title || seen.has(title) || /置顶|广告/.test(title)) continue;
+      seen.add(title);
+      out.push({ title, platform: '微博热搜', heat: span ? parseHotNumber(span[1]) : 0, rank: out.length + 1 });
+    }
+    if (out.length) return out;
+    fails.push('pc_empty');
+  } catch (e) { fails.push('pc_' + (e.message || 'fail')); }
+
+  /* 3) 移动端接口：最后一跳。 */
+  try {
+    const data = await hotFetchJson(
+      'https://m.weibo.cn/api/container/getIndex?containerid=106003type%3D25%26t%3D3%26disable_hot%3D1%26filter_type%3Dreallhot',
+      { accept: 'application/json', referer: 'https://m.weibo.cn/' },
+    );
+    const cards = Array.isArray(data && data.data && data.data.cards) ? data.data.cards : [];
+    const groups = cards.map((c) => c && c.card_group).filter(Array.isArray).flat();
+    const out = [];
+    groups.forEach((g, i) => {
+      if (out.length >= HOT_LIVE_MAX) return;
+      const title = String((g && g.desc) || '').replace(/\s+/g, ' ').trim();
+      if (!title) return;
+      out.push({ title, platform: '微博热搜', heat: parseHotNumber(g && g.desc_extr), rank: i + 1 });
+    });
+    if (out.length) return out;
+    fails.push('m_empty');
+  } catch (e) { fails.push('m_' + (e.message || 'fail')); }
+
+  throw new Error('weibo_all(' + fails.join('/') + ')');
+}
+
+async function fetchHotXhs() {
+  /* 聚合服务的数据形状各不相同，统一取 {title, heat} 再归一。
+     uapis 免费无需 key；后面几个是免费热榜聚合服务，随时可能下线，失败就试下一个。 */
+  const chain = [
+    { name: 'uapis', url: 'https://uapis.cn/api/v1/misc/hotboard?type=xiaohongshu',
+      pick: (j) => (Array.isArray(j && j.list) ? j.list.map((x) => ({ title: x.title || x.name, heat: x.hot_value != null ? x.hot_value : x.hot })) : []) },
+    { name: 'pearktrue', url: 'https://api.pearktrue.cn/api/hotlist/?type=xiaohongshu',
+      pick: (j) => (Array.isArray(j && j.data) ? j.data.map((x) => ({ title: x.name || x.title, heat: x.hot })) : []) },
+    { name: 'vvhan', url: 'https://api.vvhan.com/api/hotlist/xiaohongshuHot',
+      pick: (j) => (Array.isArray(j && j.data) ? j.data.map((x) => ({ title: x.title || x.name, heat: x.hot })) : []) },
+    { name: 'imsyy', url: 'https://api-hot.imsyy.top/xiaohongshu',
+      pick: (j) => (Array.isArray(j && j.data) ? j.data.map((x) => ({ title: x.title || x.name, heat: x.hot })) : []) },
+  ];
+  const fails = [];
+  for (const src of chain) {
+    try {
+      const res = await fetch(src.url, {
+        headers: { 'user-agent': HOT_UA, accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) throw new Error('http_' + res.status);
+      const list = src.pick(await res.json());
+      const out = [];
+      const seen = new Set();
+      for (const it of list) {
+        if (out.length >= HOT_LIVE_MAX) break;
+        const title = String((it && it.title) || '').replace(/\s+/g, ' ').trim();
+        if (!title || seen.has(title)) continue;
+        seen.add(title);
+        out.push({ title, platform: '小红书热榜', heat: parseHotNumber(it && it.heat), rank: out.length + 1 });
+      }
+      if (out.length) return out;
+      fails.push(src.name + '_empty');
+    } catch (e) { fails.push(src.name + '_' + (e.message || 'fail')); }
+  }
+  throw new Error('xhs_all(' + fails.join('/') + ')');
 }
 
 async function readHotCache(env) {
@@ -272,22 +396,29 @@ async function writeHotCache(env, payload) {
   }
 }
 
+const HOT_SOURCES = [
+  { name: 'B站热搜', run: fetchHotBilibili },
+  { name: '百度热搜', run: fetchHotBaidu },
+  { name: '微博热搜', run: fetchHotWeibo },
+  { name: '小红书热榜', run: fetchHotXhs },
+];
+
 async function collectHotLive() {
-  const settled = await Promise.allSettled([fetchHotBilibili(), fetchHotBaidu()]);
+  const settled = await Promise.allSettled(HOT_SOURCES.map((s) => s.run()));
   const sources = [];
   const errors = [];
   const byTitle = new Map();
-  settled.forEach((r, i) => {
-    const name = i === 0 ? 'B站热搜' : '百度热搜';
+  HOT_SOURCES.forEach((s, i) => {
+    const r = settled[i];
     if (r.status === 'fulfilled') {
-      sources.push(name);
+      sources.push(s.name);
       for (const it of r.value) {
         const key = hotNorm(it.title);
         const prev = byTitle.get(key);
         if (!prev || it.heat > prev.heat) byTitle.set(key, it);
       }
     } else {
-      errors.push(String((r.reason && r.reason.message) || 'fetch_failed').slice(0, 80));
+      errors.push(s.name + ': ' + String((r.reason && r.reason.message) || 'fetch_failed').slice(0, 80));
     }
   });
 
