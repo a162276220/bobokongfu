@@ -61,6 +61,7 @@ const MUST_HAVE = [
   'class="ip-pet-picker"',
   'ip-avatar-pet',
   'class="ip-badge"',
+  'id="ipName2"',
 ];
 
 const PATCHES = [
@@ -1034,7 +1035,7 @@ const PATCHES = [
       if (ip.source !== 'pet') { ip.source = 'pet'; changed = true; }
       if (ip.petId !== pet.petId) { ip.petId = pet.petId; changed = true; }
       if (ip.petRef !== pet.id) { ip.petRef = pet.id; changed = true; }
-      if (ip.name !== name) { ip.name = name; changed = true; }
+      if (!ip.customName && ip.name !== name) { ip.name = name; changed = true; }
     });
     if (changed) saveState();
   }
@@ -1144,6 +1145,68 @@ const PATCHES = [
     return '<div class="utp-card"><div class="utp-card-head"><span class="utp-card-title">🎭 形象库</span>' +
       '<span class="utp-note">' + ips.length + ' 个可用' + (petN ? ' · 🐾 ' + petN + ' 个宠物角色' : '') + ' · 口播/微短剧「开工」时选角</span></div>' +
       '<div class="ip-grid">' + cards + petCard + newCard + '</div></div>' +`,
+  },
+  {
+    name: '53. 形象编辑支持改角色名（宠物可命名为矿工老爹）',
+    old: `  function ipEditOpen(id) {
+    const s = getState();
+    const ip = ipsOf(s).find(function (x) { return x.id === id; });
+    if (!ip) return;
+    showModal('✎ 编辑人设 · ' + utpEsc(ip.name),
+      '<div class="utp-form" style="grid-template-columns:1fr">' +
+      '<div class="f full"><label>人设描述（至少 10 字）' + (ip.status === 'locked' ? ' · 定妆图已🔒锁定' : '') + '</label>' +
+      '<textarea id="ipPersona2" rows="3">' + utpEsc(ip.persona) + '</textarea></div></div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
+      '<button class="utp-act" onclick="closeModal()">取消</button>' +
+      '<button class="utp-act" onclick="ipSavePersona(\\'' + id + '\\', (document.getElementById(\\'ipPersona2\\')||{}).value)">保存</button></div>');
+  }
+
+  function ipSavePersona(id, text) {
+    const s = getState();
+    const ip = ipsOf(s).find(function (x) { return x.id === id; });
+    if (!ip) return;
+    const p = String(text == null ? '' : text).trim();
+    if (p.length < 10) { showToast('人设描述至少 10 个字', 'warning'); return; }
+    ip.persona = p;
+    ip.updatedAt = dmNowIso();
+    saveState();
+    if (typeof closeModal === 'function') closeModal();
+    refreshPage('media');
+    showToast('✓ 人设已保存', 'success');
+  }`,
+    new: `  function ipEditOpen(id) {
+    const s = getState();
+    const ip = ipsOf(s).find(function (x) { return x.id === id; });
+    if (!ip) return;
+    showModal('✎ 编辑形象 · ' + utpEsc(ip.name),
+      '<div class="utp-form" style="grid-template-columns:1fr">' +
+      '<div class="f full"><label>角色名称</label><input id="ipName2" value="' + utpEsc(ip.name) + '"></div>' +
+      '<div class="f full"><label>人设描述（至少 10 字）' + (ip.status === 'locked' ? ' · 定妆图已🔒锁定' : '') + '</label>' +
+      '<textarea id="ipPersona2" rows="3">' + utpEsc(ip.persona) + '</textarea></div></div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
+      '<button class="utp-act" onclick="closeModal()">取消</button>' +
+      '<button class="utp-act" onclick="ipSavePersona(\\'' + id + '\\', (document.getElementById(\\'ipPersona2\\')||{}).value, (document.getElementById(\\'ipName2\\')||{}).value)">保存</button></div>');
+  }
+
+  function ipSavePersona(id, text, name) {
+    const s = getState();
+    const ip = ipsOf(s).find(function (x) { return x.id === id; });
+    if (!ip) return;
+    const p = String(text == null ? '' : text).trim();
+    const n = String(name == null ? '' : name).trim();
+    if (!n) { showToast('名称不能为空', 'warning'); return; }
+    if (p.length < 10) { showToast('人设描述至少 10 个字', 'warning'); return; }
+    if (ipsOf(s).some(function (x) { return x.id !== id && x.name === n && x.status !== 'disabled'; })) {
+      showToast('名称已存在', 'warning'); return;
+    }
+    ip.persona = p;
+    if (n !== ip.name) { ip.name = n; ip.customName = true; }
+    ip.updatedAt = dmNowIso();
+    saveState();
+    if (typeof closeModal === 'function') closeModal();
+    refreshPage('media');
+    showToast('✓ 形象已保存', 'success');
+  }`,
   },
 ];
 
