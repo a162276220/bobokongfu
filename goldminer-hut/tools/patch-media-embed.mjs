@@ -64,6 +64,8 @@ const MUST_HAVE = [
   'id="ipName2"',
   'function mfGenerateImage(taskId, force)',
   'function mfSpeakText(text)',
+  'function mfPetRefDataUrl(petId)',
+  '宠物参考图',
   'class="tk-image"',
   'tk-img-error',
   '/api/ai/image',
@@ -992,6 +994,7 @@ const PATCHES = [
       const meta = [];
       if (t.ipId) meta.push('<span>🎭 ' + utpEsc(ipNameOf(s, t.ipId)) + '</span>');
       if (step >= 1) meta.push('<span>' + (t.text === 'real' ? '⚡ 真实模型' : '🧩 本地模板') + '</span>');
+      if (t.image && t.image.ref) meta.push('<span>🐾 宠物参考图</span>');
       const imgSrc = t.image && t.image.src;
       const imgHtml = imgSrc
         ? '<div class="tk-image"><img src="' + utpEsc(imgSrc) + '" alt="AI 配图" loading="lazy"></div>'
@@ -1246,9 +1249,35 @@ const PATCHES = [
       '标题：' + t.title + '。',
       '风格：' + (t.style || '干净、专业、有质感') + '。',
     ];
-    if (ip) bits.push('画面角色：' + ip.name + '，' + String(ip.persona || '').slice(0, 200) + '。');
+    if (ip) {
+      bits.push('画面角色：' + ip.name + '，' + String(ip.persona || '').slice(0, 200) + '。');
+      if (ip.petId) bits.push('以参考图中的宠物角色为主角，保持它的外观、颜色、帽子和表情特征，不要改变角色设定。');
+    }
     bits.push('适合中文社交媒体，构图留白，不要出现文字、水印、logo。');
     return bits.join('').slice(0, 1800);
+  }
+  function mfFetchDataUrl(url) {
+    return fetch(url, { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.blob();
+    }).then(function (blob) {
+      return new Promise(function (resolve) {
+        const fr = new FileReader();
+        fr.onload = function () { resolve(String(fr.result || '')); };
+        fr.onerror = function () { resolve(''); };
+        fr.readAsDataURL(blob);
+      });
+    }).catch(function () { return ''; });
+  }
+  /* 宠物图集首帧 → data URI，作为图生图参考；拿不到就退回纯文字生成。 */
+  function mfPetRefDataUrl(petId) {
+    if (!petId || typeof PetManager === 'undefined' || !PetManager.thumb) return Promise.resolve('');
+    const html = PetManager.thumb(petId, 1) || '';
+    const m = html.match(/src="([^"]+)"/);
+    if (!m) return Promise.resolve('');
+    return mfFetchDataUrl(m[1]).then(function (data) {
+      return (data && data.indexOf('data:image/') === 0 && data.length < 400 * 1024) ? data : '';
+    });
   }
   function mfCompressImage(src, maxW) {
     return new Promise(function (resolve) {
@@ -1287,17 +1316,20 @@ const PATCHES = [
     t.imageError = '';
     saveState();
     if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
-    fetch('/api/ai/image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ prompt: prompt, ratio: ratio }),
-    }).then(function (r) {
-      return r.json().catch(function () { return null; }).then(function (j) {
-        if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
-        return j;
+    const send = function (ref) {
+      return fetch('/api/ai/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ prompt: prompt, ratio: ratio, ref: ref || '' }),
+      }).then(function (r) {
+        return r.json().catch(function () { return null; }).then(function (j) {
+          if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
+          return j;
+        });
       });
-    }).then(function (j) {
+    };
+    const apply = function (j) {
       const src = j && j.image && j.image.src;
       if (!src) throw new Error('没有返回图片');
       return mfCompressImage(src, 900).then(function (small) {
@@ -1306,14 +1338,16 @@ const PATCHES = [
         if (!tt) return;
         tt._imgPending = false;
         tt.imageError = '';
-        tt.image = { src: small, ratio: ratio, model: (j.image && j.image.model) || '', prompt: prompt, at: new Date().toISOString() };
+        tt.image = { src: small, ratio: ratio, model: (j.image && j.image.model) || '', prompt: prompt, ref: !!(j.image && j.image.ref), at: new Date().toISOString() };
         const cc = mfContents(ss).filter(function (x) { return x.taskId === taskId; })[0];
         if (cc) cc.image = tt.image;
         saveState();
         if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
-        showToast('✓ 配图已生成（' + ((j.image && j.image.model) || '云端') + '）', 'success');
+        showToast('✓ 配图已生成' + (tt.image.ref ? '（含宠物参考图）' : '') + '（' + ((j.image && j.image.model) || '云端') + '）', 'success');
       });
-    }).catch(function (e) {
+    };
+    const attempt = function (ref) { return send(ref).then(apply); };
+    const fail = function (e) {
       const ss = getState();
       const tt = mfTasks(ss).find(function (x) { return x.id === taskId; });
       if (tt) {
@@ -1323,7 +1357,18 @@ const PATCHES = [
         if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
       }
       showToast('配图生成失败：' + ((e && e.message) || '未知原因'), 'warning');
-    });
+    };
+    if (ip && ip.petId) {
+      mfPetRefDataUrl(ip.petId).then(function (ref) {
+        if (!ref) return attempt('');
+        return attempt(ref).catch(function () {
+          showToast('宠物参考图未被接受，改用纯文字重试', 'warning');
+          return attempt('');
+        });
+      }).catch(fail);
+    } else {
+      attempt('').catch(fail);
+    }
   }
   function mfSpeakText(text) {
     if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {

@@ -8,7 +8,8 @@ const DEFAULT_BASE = 'https://api.deepseek.com/v1';
 const DEFAULT_MODEL = 'deepseek-chat';
 const DEFAULT_IMAGE_MODEL = 'agnes-image-2.5-flash';
 const MAX_BODY_BYTES = 128 * 1024;
-const MAX_IMAGE_BODY_BYTES = 64 * 1024;
+const MAX_IMAGE_BODY_BYTES = 512 * 1024;
+const MAX_IMAGE_REF_BYTES = 400 * 1024;
 const MAX_MESSAGES = 40;
 const MAX_CHARS = 60000;
 const MAX_IMAGE_PROMPT = 2000;
@@ -157,6 +158,18 @@ async function handleImage(env, request) {
   }
   const ratio = IMAGE_RATIOS.has(body.ratio) ? body.ratio : '1:1';
   const size = IMAGE_SIZES.has(body.size) ? body.size : '1K';
+  const ref = typeof body.ref === 'string' ? body.ref : '';
+  if (ref) {
+    if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(ref)) {
+      return json({ error: 'invalid_request', message: '参考图格式不对' }, 400);
+    }
+    if (ref.length > MAX_IMAGE_REF_BYTES) {
+      return json({ error: 'invalid_request', message: '参考图过大' }, 400);
+    }
+  }
+
+  const extra = { response_format: 'b64_json' };
+  if (ref) extra.image = [ref];
 
   try {
     const res = await upstream(env, '/images/generations', {
@@ -168,6 +181,7 @@ async function handleImage(env, request) {
         size,
         ratio,
         return_base64: true,
+        extra_body: extra,
       }),
     }, IMAGE_TIMEOUT_MS);
     if (!res.ok) {
@@ -193,7 +207,7 @@ async function handleImage(env, request) {
       src = url;
     }
     if (!src) return json({ error: 'empty_response', message: '图片接口没有返回图片' }, 502);
-    return json({ ok: true, image: { src, model: imageModel(env), ratio, size } });
+    return json({ ok: true, image: { src, model: imageModel(env), ratio, size, ref: !!ref } });
   } catch (e) {
     return failure(e);
   }
