@@ -56,6 +56,11 @@ const MUST_HAVE = [
   'class="tk-error"',
   'class="mf-steps"',
   'page-content page-',
+  'function ipSyncPets(s)',
+  'function ipOpenPets()',
+  'class="ip-pet-picker"',
+  'ip-avatar-pet',
+  'class="ip-badge"',
 ];
 
 const PATCHES = [
@@ -907,6 +912,19 @@ const PATCHES = [
     .page-media .mf-cfg .utp-form, .page-media-classic .mf-cfg .utp-form { grid-template-columns: 1fr; }
     .page-media .mf-cfg .utp-form .f.wide, .page-media-classic .mf-cfg .utp-form .f.wide { grid-column: auto; }
   }
+  .ip-avatar .ip-face { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  .ip-avatar-pet { background: linear-gradient(160deg, #f7ecd7, #efe0c8); }
+  .ip-avatar-pet .ip-face > img, .ip-avatar-pet .ip-face > div { max-width: 100%; max-height: 100%; }
+  .ip-card .ip-badge { display: inline-flex; align-items: center; padding: 1px 6px; margin-left: 4px; border-radius: 999px; font-size: 10px; font-weight: 700; color: var(--color-success); background: rgba(39, 169, 115, .12); vertical-align: middle; }
+  .ip-pet-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: min(60vh, 480px); overflow: auto; padding: 2px; }
+  .ip-pet-pick { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-panel); color: inherit; cursor: pointer; font-family: inherit; }
+  .ip-pet-pick:hover { border-color: var(--gold); background: rgba(255, 109, 36, .05); }
+  .ip-pet-pick:disabled { opacity: .55; cursor: default; }
+  .ip-pet-thumb { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; }
+  .ip-pet-name { font-size: 12px; font-weight: 700; color: var(--text-warm); text-align: center; line-height: 1.35; }
+  .ip-pet-state { font-size: 10.5px; color: var(--text-dim); }
+  .ip-pet-pick.on .ip-pet-state { color: var(--color-success); }
+  @media (max-width: 640px) { .ip-pet-picker { grid-template-columns: repeat(2, 1fr); } }
 </style>`,
   },
   {
@@ -969,6 +987,163 @@ const PATCHES = [
         (ops.length ? '<div class="mf-ops">' + ops.join('') + '</div>' : '') +
         '</div>';
     }).join('') || '<div class="mf-empty">队列空着。<br>上面挑一条「已采用」的选题点开工，三步产出成品。</div>';`,
+  },
+  {
+    name: '50. 渲染媒体页时把已领养宠物同步进形象库',
+    old: `  function renderMedia() {
+    utpCleanStaleTopics();
+    const s = getState();`,
+    new: `  function renderMedia() {
+    utpCleanStaleTopics();
+    const s = getState();
+    ipSyncPets(s);`,
+  },
+  {
+    name: '51. 宠物角色自动入库与宠物角色选择器',
+    old: `  function ipsOf(s) { return (s.media && s.media.ips) || []; }
+  function ipActive(s) { return ipsOf(s).filter(function (x) { return x.status !== 'disabled'; }); }`,
+    new: `  function ipsOf(s) { return (s.media && s.media.ips) || []; }
+  function ipPetPersona(name, type) {
+    return '矿工小屋的宠物角色「' + name + '」（' + type + '）。自动同步自宠物角色库，可继续补充语气、穿搭与内容定位。';
+  }
+  /* 已领养宠物自动对应一个 IP，名字跟随宠物、头像用宠物图集首帧；
+     同一只宠物只建一次，后续改名会同步，人设编辑不会被覆盖。 */
+  function ipSyncPets(s) {
+    const pets = (s && Array.isArray(s.pets)) ? s.pets : [];
+    if (!pets.length) return;
+    s.media = s.media || {};
+    s.media.ips = s.media.ips || [];
+    let changed = false;
+    pets.forEach(function (pet) {
+      if (!pet || !pet.id || !pet.petId) return;
+      const id = 'ip_pet_' + pet.id;
+      let ip = s.media.ips.find(function (x) { return x.id === id; });
+      const name = String(pet.name || pet.type || '宠物角色');
+      const type = String(pet.type || name);
+      if (!ip) {
+        const n = s.media.ips.length;
+        s.media.ips.push({
+          id: id, name: name, persona: ipPetPersona(name, type),
+          glyph: '🐾', g1: IP_GRADS[n % IP_GRADS.length][0], g2: IP_GRADS[n % IP_GRADS.length][1],
+          status: 'active', videoCount: 0, createdAt: dmNowIso(), demo: false,
+          petId: pet.petId, petRef: pet.id, source: 'pet',
+        });
+        changed = true;
+        return;
+      }
+      if (ip.source !== 'pet') { ip.source = 'pet'; changed = true; }
+      if (ip.petId !== pet.petId) { ip.petId = pet.petId; changed = true; }
+      if (ip.petRef !== pet.id) { ip.petRef = pet.id; changed = true; }
+      if (ip.name !== name) { ip.name = name; changed = true; }
+    });
+    if (changed) saveState();
+  }
+  function ipActive(s) {
+    const pets = (s && Array.isArray(s.pets)) ? s.pets : [];
+    const alive = {};
+    pets.forEach(function (p) { if (p && p.id) alive[p.id] = true; });
+    const list = ipsOf(s).filter(function (x) {
+      if (x.status === 'disabled') return false;
+      if (x.source === 'pet' && x.petRef && !alive[x.petRef]) return false;
+      return true;
+    });
+    const hasPetIp = list.some(function (x) { return !!x.petId; });
+    return list.filter(function (x) { return !(hasPetIp && x.demo); }).sort(function (a, b) {
+      return (b.petId ? 1 : 0) - (a.petId ? 1 : 0);
+    });
+  }
+  function ipPetCatalog() { return (SHOP_DATA && SHOP_DATA.pets) || []; }
+  function ipPetThumb(petId, size) {
+    return (typeof PetManager !== 'undefined' && petId) ? (PetManager.thumb(petId, size) || '') : '';
+  }
+  function ipHasPet(petId) {
+    return ipsOf(getState()).some(function (x) { return x.petId === petId; });
+  }
+  function ipPetPickerHtml() {
+    const pets = ipPetCatalog();
+    if (!pets.length) return '<div class="utp-empty">没有可用的宠物角色</div>';
+    return pets.map(function (p) {
+      const has = ipHasPet(p.petId);
+      return '<button type="button" class="ip-pet-pick' + (has ? ' on' : '') + '"' + (has ? ' disabled' : '') + ' onclick="ipImportPet(\\'' + p.id + '\\')">' +
+        '<span class="ip-pet-thumb">' + ipPetThumb(p.petId, 56) + '</span>' +
+        '<span class="ip-pet-name">' + utpEsc(p.name) + '</span>' +
+        '<span class="ip-pet-state">' + (has ? '✓ 已加入' : '＋ 加入') + '</span></button>';
+    }).join('');
+  }
+  function ipOpenPets() {
+    showModal('🐾 从宠物角色导入',
+      '<div class="utp-note" style="margin-bottom:10px">选一只宠物作为口播/微短剧的固定角色；导入后可在形象库编辑人设。</div>' +
+      '<div class="ip-pet-picker">' + ipPetPickerHtml() + '</div>');
+  }
+  function ipImportPet(shopId) {
+    const item = ipPetCatalog().find(function (p) { return p.id === shopId; });
+    if (!item) { showToast('宠物角色不存在', 'warning'); return; }
+    const s = getState();
+    if (ipHasPet(item.petId)) { showToast('这个宠物角色已在形象库', 'warning'); return; }
+    s.media = s.media || {};
+    s.media.ips = ipsOf(s);
+    const n = s.media.ips.length;
+    s.media.ips.push({
+      id: 'ip_pet_import_' + item.petId, name: item.name,
+      persona: ipPetPersona(item.name, item.name),
+      glyph: '🐾', g1: IP_GRADS[n % IP_GRADS.length][0], g2: IP_GRADS[n % IP_GRADS.length][1],
+      status: 'active', videoCount: 0, createdAt: dmNowIso(), demo: false,
+      petId: item.petId, source: 'pet', imported: true,
+    });
+    saveState();
+    if (typeof closeModal === 'function') closeModal();
+    refreshPage('media');
+    showToast('✓ 已加入形象库：' + item.name, 'success');
+  }`,
+  },
+  {
+    name: '52. 形象卡使用宠物头像并增加导入入口',
+    old: `    const cards = ips.map(function (ip) {
+      const locked = ip.status === 'locked';
+      const ops = locked
+        ? '<button class="utp-act" onclick="ipEditOpen(\\'' + ip.id + '\\')">✎ 人设</button>'
+        : '<button class="utp-act" onclick="ipEditOpen(\\'' + ip.id + '\\')">✎ 人设</button>' +
+          '<button class="utp-act danger" onclick="ipDisable(\\'' + ip.id + '\\')">⏸ 停用</button>';
+      return '<div class="ip-card">' +
+        '<div class="ip-avatar" style="background:linear-gradient(160deg,' + ip.g1 + ',' + ip.g2 + ')">' +
+        (locked ? '<span class="ip-lock">🔒 已锁定</span>' : '') + '<span>' + ip.glyph + '</span></div>' +
+        '<div class="ip-n">' + utpEsc(ip.name) + '</div>' +
+        '<div class="ip-p">' + utpEsc(ip.persona) + '</div>' +
+        '<div class="ip-meta"><span class="utp-tag">出演 ' + (ip.videoCount || 0) + ' 条</span>' +
+        '<span class="pub-ops">' + ops + '</span></div></div>';
+    }).join('');
+    const newCard = '<div class="ip-card" style="border-style:dashed;align-items:center;justify-content:center;text-align:center;cursor:pointer;min-height:150px" onclick="ipOpenCreate()">' +
+      '<div style="font-size:30px">＋</div><div style="font-size:13.5px;font-weight:800;color:var(--text-warm)">创建新形象</div>' +
+      '<div style="font-size:11px;color:var(--text-dim);margin-top:6px;line-height:1.7">本地生成定妆图候选<br>不满意就重开换一批</div></div>';
+    return '<div class="utp-card"><div class="utp-card-head"><span class="utp-card-title">🎭 形象库</span>' +
+      '<span class="utp-note">' + ips.length + ' 个可用 · 口播/微短剧「开工」时选角</span></div>' +
+      '<div class="ip-grid">' + cards + newCard + '</div></div>' +`,
+    new: `    const cards = ips.map(function (ip) {
+      const locked = ip.status === 'locked';
+      const isPet = !!ip.petId;
+      const ops = '<button class="utp-act" onclick="ipEditOpen(\\'' + ip.id + '\\')">✎ 人设</button>' +
+        (!isPet && !locked ? '<button class="utp-act danger" onclick="ipDisable(\\'' + ip.id + '\\')">⏸ 停用</button>' : '');
+      const face = isPet
+        ? (ipPetThumb(ip.petId, 72) || '<span>' + ip.glyph + '</span>')
+        : '<span>' + ip.glyph + '</span>';
+      return '<div class="ip-card">' +
+        '<div class="ip-avatar' + (isPet ? ' ip-avatar-pet' : '') + '"' + (isPet ? '' : ' style="background:linear-gradient(160deg,' + ip.g1 + ',' + ip.g2 + ')"') + '>' +
+        (locked ? '<span class="ip-lock">🔒 已锁定</span>' : '') + '<span class="ip-face">' + face + '</span></div>' +
+        '<div class="ip-n">' + utpEsc(ip.name) + (isPet ? ' <span class="ip-badge">🐾 宠物</span>' : '') + '</div>' +
+        '<div class="ip-p">' + utpEsc(ip.persona) + '</div>' +
+        '<div class="ip-meta"><span class="utp-tag">出演 ' + (ip.videoCount || 0) + ' 条</span>' +
+        '<span class="pub-ops">' + ops + '</span></div></div>';
+    }).join('');
+    const newCard = '<div class="ip-card" style="border-style:dashed;align-items:center;justify-content:center;text-align:center;cursor:pointer;min-height:150px" onclick="ipOpenCreate()">' +
+      '<div style="font-size:30px">＋</div><div style="font-size:13.5px;font-weight:800;color:var(--text-warm)">创建新形象</div>' +
+      '<div style="font-size:11px;color:var(--text-dim);margin-top:6px;line-height:1.7">本地生成定妆图候选<br>不满意就重开换一批</div></div>';
+    const petCard = '<div class="ip-card" style="border-style:dashed;align-items:center;justify-content:center;text-align:center;cursor:pointer;min-height:150px" onclick="ipOpenPets()">' +
+      '<div style="font-size:30px">🐾</div><div style="font-size:13.5px;font-weight:800;color:var(--text-warm)">从宠物角色导入</div>' +
+      '<div style="font-size:11px;color:var(--text-dim);margin-top:6px;line-height:1.7">用胡胡、墩墩等宠物形象<br>当口播 / 微短剧角色</div></div>';
+    const petN = ips.filter(function (x) { return !!x.petId; }).length;
+    return '<div class="utp-card"><div class="utp-card-head"><span class="utp-card-title">🎭 形象库</span>' +
+      '<span class="utp-note">' + ips.length + ' 个可用' + (petN ? ' · 🐾 ' + petN + ' 个宠物角色' : '') + ' · 口播/微短剧「开工」时选角</span></div>' +
+      '<div class="ip-grid">' + cards + petCard + newCard + '</div></div>' +`,
   },
 ];
 
