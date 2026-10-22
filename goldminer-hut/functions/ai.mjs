@@ -21,7 +21,7 @@ const VIDEO_TIMEOUT_MS = 30000;
 const VIDEO_POLL_TIMEOUT_MS = 20000;
 const TTS_MODEL = '@cf/myshell-ai/melotts';
 const MAX_TTS_CHARS = 1200;
-const TTS_TIMEOUT_MS = 60000;
+const TTS_TIMEOUT_MS = 25000;
 const IMAGE_RATIOS = new Set(['1:1', '3:4', '4:3', '16:9', '9:16', '2:3', '3:2', '21:9']);
 const IMAGE_SIZES = new Set(['1K', '2K', '3K', '4K']);
 
@@ -423,6 +423,10 @@ async function handleTTS(env, request) {
       },
     });
   } catch (e) {
+    const name = String((e && e.name) || '');
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      return json({ error: 'tts_unavailable', message: '云端语音服务暂时不可用，请稍后重试' }, 504);
+    }
     return failure(e);
   }
 }

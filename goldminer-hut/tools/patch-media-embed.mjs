@@ -1653,6 +1653,7 @@ const PATCHES = [
     }).then(function (r) {
       if (!r.ok) {
         return r.json().catch(function () { return null; }).then(function (j) {
+          if (r.status === 503 || r.status === 504) throw new Error('云端语音服务暂时不可用，请稍后重试');
           throw new Error((j && j.message) || ('HTTP ' + r.status));
         });
       }
