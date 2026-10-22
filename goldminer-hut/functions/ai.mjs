@@ -117,6 +117,14 @@ async function handleVideo(env, request, url) {
       }, VIDEO_TIMEOUT_MS);
       if (!res.ok) {
         const detail = shortDetail(await res.text().catch(() => ''));
+        if (res.status === 429) {
+          const retryAfter = Math.round(clampNumber(res.headers.get('retry-after'), 30, 300, 60));
+          return json({
+            error: 'rate_limited',
+            message: '视频接口限流，请 ' + retryAfter + ' 秒后再试' + (detail ? '：' + detail : ''),
+            retry_after: retryAfter,
+          }, 429);
+        }
         return json({ error: 'upstream_error', message: '视频接口返回 ' + res.status + (detail ? '：' + detail : '') }, 502);
       }
       const data = await res.json().catch(() => null);

@@ -1464,6 +1464,9 @@ const PATCHES = [
     if (!c) return;
     if (!MediaAI.activeCloud()) { showToast('云端 AI 未启用', 'warning'); return; }
     if (c.video && c.video.status === 'processing') { showToast('视频正在生成，稍等', 'info'); return; }
+    if (c.video && c.video.retryAt && Date.now() < c.video.retryAt) {
+      showToast('视频接口限流，' + Math.ceil((c.video.retryAt - Date.now()) / 1000) + ' 秒后再试', 'info'); return;
+    }
     if (mfContents(s).some(function (x) { return x.id !== cid && x.video && x.video.status === 'processing'; })) {
       showToast('已有视频在生成，稍后再试', 'info'); return;
     }
@@ -1478,7 +1481,11 @@ const PATCHES = [
       body: JSON.stringify({ prompt: prompt }),
     }).then(function (r) {
       return r.json().catch(function () { return null; }).then(function (j) {
-        if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
+        if (!r.ok) {
+          const err = new Error((j && j.message) || ('HTTP ' + r.status));
+          err.retryAfter = j && j.retry_after ? Number(j.retry_after) : (r.status === 429 ? 60 : 0);
+          throw err;
+        }
         return j;
       });
     }).then(function (j) {
@@ -1487,6 +1494,7 @@ const PATCHES = [
       if (!cc || !cc.video) return;
       cc.video.videoId = j.videoId || '';
       cc.video.status = 'processing';
+      cc.video.retryAt = 0;
       saveState();
       if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
       mfVideoPoll(cid, 0);
@@ -1496,6 +1504,7 @@ const PATCHES = [
       if (cc && cc.video) {
         cc.video.status = 'failed';
         cc.video.error = '创建视频任务失败：' + ((e && e.message) || '未知原因');
+        cc.video.retryAt = e && e.retryAfter ? Date.now() + Number(e.retryAfter) * 1000 : 0;
         saveState();
         if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
       }
