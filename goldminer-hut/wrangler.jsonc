@@ -13,8 +13,8 @@
   // AI 代理的上游与模型；Key 不写在这里，用 Worker Secret：
   //   npx wrangler secret put AI_API_KEY
   "vars": {
-    "AI_API_BASE": "https://api.deepseek.com/v1",
-    "AI_MODEL": "deepseek-chat"
+    "AI_API_BASE": "https://api.agnes-ai.cn/v1",
+    "AI_MODEL": "agnes-3.0-flash"
   },
 
   "d1_databases": [
