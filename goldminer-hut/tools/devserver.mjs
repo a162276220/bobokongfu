@@ -42,6 +42,18 @@ const env = {
   AI_VIDEO_POLL_BASE: process.env.AI_VIDEO_POLL_BASE || '',
 };
 
+/* 本地没有 Workers AI 绑定；测试 TTS 时用一段 1 秒静音 WAV 顶替。 */
+if (process.env.AI_TTS_FAKE === '1') {
+  const rate = 8000, seconds = 1, dataSize = rate * seconds * 2;
+  const wav = Buffer.alloc(44 + dataSize);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + dataSize, 4); wav.write('WAVE', 8);
+  wav.write('fmt ', 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28);
+  wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36);
+  wav.writeUInt32LE(dataSize, 40);
+  env.AI = { run: async () => ({ audio: wav.toString('base64') }) };
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',

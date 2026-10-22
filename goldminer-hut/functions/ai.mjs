@@ -19,6 +19,9 @@ const MODELS_TIMEOUT_MS = 15000;
 const IMAGE_TIMEOUT_MS = 90000;
 const VIDEO_TIMEOUT_MS = 30000;
 const VIDEO_POLL_TIMEOUT_MS = 20000;
+const TTS_MODEL = '@cf/myshell-ai/melotts';
+const MAX_TTS_CHARS = 1200;
+const TTS_TIMEOUT_MS = 60000;
 const IMAGE_RATIOS = new Set(['1:1', '3:4', '4:3', '16:9', '9:16', '2:3', '3:2', '21:9']);
 const IMAGE_SIZES = new Set(['1K', '2K', '3K', '4K']);
 
@@ -328,6 +331,73 @@ async function handleImage(env, request) {
   }
 }
 
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => {
+      reject(Object.assign(new Error('timeout'), { name: 'TimeoutError' }));
+    }, ms);
+    promise.then((v) => { clearTimeout(id); resolve(v); }, (e) => { clearTimeout(id); reject(e); });
+  });
+}
+
+function decodeAudio(result) {
+  if (!result) return null;
+  if (result instanceof Response) return result.arrayBuffer().then((b) => new Uint8Array(b));
+  if (result instanceof ArrayBuffer) return Promise.resolve(new Uint8Array(result));
+  if (result instanceof Uint8Array) return Promise.resolve(result);
+  const audio = typeof result === 'object' && result.audio !== undefined ? result.audio : result;
+  if (audio instanceof ArrayBuffer) return Promise.resolve(new Uint8Array(audio));
+  if (audio instanceof Uint8Array) return Promise.resolve(audio);
+  if (typeof audio === 'string' && audio) {
+    const b64 = audio.indexOf(',') >= 0 ? audio.slice(audio.indexOf(',') + 1) : audio;
+    try {
+      return Promise.resolve(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function handleTTS(env, request) {
+  const raw = await request.text().catch(() => '');
+  if (!raw || raw.length > 32 * 1024) {
+    return json({ error: 'invalid_request', message: '请求体为空或过大' }, 400);
+  }
+  let body;
+  try { body = JSON.parse(raw); } catch { return json({ error: 'invalid_request', message: '请求不是合法 JSON' }, 400); }
+  const text = typeof body.text === 'string' ? body.text.trim() : '';
+  if (!text) return json({ error: 'invalid_request', message: '缺少 text' }, 400);
+  if (text.length > MAX_TTS_CHARS) {
+    return json({ error: 'invalid_request', message: '文本过长，最多 ' + MAX_TTS_CHARS + ' 字' }, 400);
+  }
+  if (!env.AI || typeof env.AI.run !== 'function') {
+    return json({ error: 'tts_not_configured', message: '云端语音未配置（缺少 Workers AI 绑定）' }, 503);
+  }
+  try {
+    const result = await withTimeout(
+      env.AI.run(TTS_MODEL, { prompt: text, lang: 'zh' }),
+      TTS_TIMEOUT_MS,
+    );
+    const bytes = await decodeAudio(result);
+    if (!bytes || !bytes.length) {
+      return json({ error: 'empty_response', message: '语音模型没有返回音频' }, 502);
+    }
+    const isWav = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+    const mime = isWav ? 'audio/wav' : 'audio/mpeg';
+    return new Response(bytes, {
+      headers: {
+        'content-type': mime,
+        'content-length': String(bytes.length),
+        'cache-control': 'no-store',
+        'x-tts-model': TTS_MODEL,
+      },
+    });
+  } catch (e) {
+    return failure(e);
+  }
+}
+
 export async function handleAI({ request, env, url }) {
   const user = await getUserFromRequest(env.DB, request);
   if (!user) return json({ error: 'login_required', message: '请先登录' }, 401);
@@ -342,6 +412,8 @@ export async function handleAI({ request, env, url }) {
       imageModel: enabled ? imageModel(env) : '',
       video: enabled,
       videoModel: enabled ? videoModel(env) : '',
+      tts: !!(env.AI && typeof env.AI.run === 'function'),
+      ttsModel: (env.AI && typeof env.AI.run === 'function') ? TTS_MODEL : '',
     });
   }
   if (request.method !== 'GET' && request.method !== 'POST') {
@@ -354,5 +426,6 @@ export async function handleAI({ request, env, url }) {
   if (request.method === 'POST' && path === '/api/ai/chat') return handleChat(env, request);
   if (request.method === 'POST' && path === '/api/ai/image') return handleImage(env, request);
   if ((request.method === 'GET' || request.method === 'POST') && path === '/api/ai/video') return handleVideo(env, request, url);
+  if (request.method === 'POST' && path === '/api/ai/tts') return handleTTS(env, request);
   return json({ error: 'not_found' }, 404);
 }

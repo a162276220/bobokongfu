@@ -73,6 +73,11 @@ const MUST_HAVE = [
   'function mfVideoPoll(cid, n)',
   'mf-video-status',
   '🎬 生成视频',
+  'function mfTtsStart(cid)',
+  'function mfHydrateTts()',
+  'data-tts-id',
+  '⬇ 下载语音',
+  '/api/ai/tts',
 ];
 
 const PATCHES = [
@@ -947,6 +952,9 @@ const PATCHES = [
   .mf-video .utp-act { align-self: flex-start; }
   .mf-video-status { margin: 8px 0; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 8px; font-size: 11.5px; color: var(--text-muted); }
   .mf-video-status.err { color: var(--color-danger); border-color: rgba(232, 74, 60, .3); background: rgba(232, 74, 60, .04); }
+  .mf-tts { margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+  .mf-tts audio { width: 100%; }
+  .mf-tts .utp-act { align-self: flex-start; }
   .utp-act:disabled { opacity: .6; cursor: default; }
   @media (max-width: 640px) {
     .page-media .mf-task .tk-image img, .page-media-classic .mf-task .tk-image img { max-height: 160px; }
@@ -1559,6 +1567,145 @@ const PATCHES = [
         mfVideoPoll(c.id, 0);
       }
     });
+  }
+  const _mfTtsUrls = {};
+  function mfTtsDb() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) { reject(new Error('浏览器不支持本地音频缓存')); return; }
+      const req = indexedDB.open('bubu-media-tts', 1);
+      req.onupgradeneeded = function () {
+        if (!req.result.objectStoreNames.contains('files')) req.result.createObjectStore('files');
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+  function mfTtsStore(mode, fn) {
+    return mfTtsDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        const tx = db.transaction('files', mode);
+        const req = fn(tx.objectStore('files'));
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    });
+  }
+  function mfTtsPut(id, blob) {
+    return mfTtsStore('readwrite', function (st) { return st.put(blob, id); });
+  }
+  function mfTtsGet(id) {
+    return mfTtsStore('readonly', function (st) { return st.get(id); });
+  }
+  function mfTtsText(c) {
+    let body = c.body || '';
+    if (c.line === 'short_form') {
+      try { const j = JSON.parse(body); body = j.body || body; } catch (e) {}
+    }
+    const clean = String(body)
+      .replace(/\`\`\`[\\s\\S]*?\`\`\`/g, ' ')
+      .replace(/[#>*_\`]/g, '')
+      .replace(/\\s+/g, ' ')
+      .trim();
+    return clean.slice(0, 1200);
+  }
+  function mfTtsButton(c) {
+    const t = c.tts || {};
+    const busy = t.status === 'processing';
+    const label = busy ? '🎙 语音生成中…' : (t.status === 'ready' ? '🎙 重新生成语音' : (t.status === 'failed' ? '🎙 重试语音' : '🎙 生成语音'));
+    return '<button class="utp-act"' + (busy ? ' disabled' : '') + ' onclick="mfTtsStart(\\'' + c.id + '\\')">' + label + '</button>';
+  }
+  function mfTtsHtml(c) {
+    const t = c && c.tts;
+    if (!t) return '';
+    if (t.status === 'processing') return '<div class="mf-video-status">🎙 语音生成中…</div>';
+    if (t.status === 'failed') return '<div class="mf-video-status err">⚠ ' + utpEsc(t.error || '语音生成失败') + '</div>';
+    if (t.status === 'ready') {
+      return '<div class="mf-tts" data-tts-id="' + c.id + '" data-tts-name="' + utpEsc(String(c.title || '口播').slice(0, 30)) + '"></div>';
+    }
+    return '';
+  }
+  function mfTtsStart(cid) {
+    const s = getState();
+    const c = mfContents(s).find(function (x) { return x.id === cid; });
+    if (!c) return;
+    const text = mfTtsText(c);
+    if (!text) { showToast('没有可朗读的正文', 'warning'); return; }
+    if (c.tts && c.tts.status === 'processing') return;
+    c.tts = { status: 'processing', at: new Date().toISOString(), textLen: text.length };
+    saveState();
+    if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+    fetch('/api/ai/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ text: text, title: c.title }),
+    }).then(function (r) {
+      if (!r.ok) {
+        return r.json().catch(function () { return null; }).then(function (j) {
+          throw new Error((j && j.message) || ('HTTP ' + r.status));
+        });
+      }
+      return r.blob();
+    }).then(function (blob) {
+      if (!blob || !blob.size) throw new Error('没有返回音频');
+      return mfTtsPut(cid, blob).catch(function () { return null; }).then(function () {
+        const ss = getState();
+        const cc = mfContents(ss).find(function (x) { return x.id === cid; });
+        if (!cc) return;
+        if (_mfTtsUrls[cid] && _mfTtsUrls[cid].url) {
+          try { URL.revokeObjectURL(_mfTtsUrls[cid].url); } catch (e) {}
+        }
+        _mfTtsUrls[cid] = { url: URL.createObjectURL(blob), mime: blob.type || 'audio/mpeg' };
+        cc.tts = { status: 'ready', mime: blob.type || 'audio/mpeg', bytes: blob.size, at: new Date().toISOString() };
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+        setTimeout(mfHydrateTts, 0);
+        showToast('✓ 语音已生成，可试听或下载', 'success');
+      });
+    }).catch(function (e) {
+      const ss = getState();
+      const cc = mfContents(ss).find(function (x) { return x.id === cid; });
+      if (cc) {
+        cc.tts = { status: 'failed', error: '语音生成失败：' + ((e && e.message) || '未知原因'), at: new Date().toISOString() };
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+      }
+      showToast('语音生成失败：' + ((e && e.message) || '未知原因'), 'warning');
+    });
+  }
+  function mfHydrateTts() {
+    const nodes = document.querySelectorAll('.mf-tts[data-tts-id]');
+    for (let i = 0; i < nodes.length; i++) {
+      const el = nodes[i];
+      if (el.getAttribute('data-hydrated')) continue;
+      el.setAttribute('data-hydrated', '1');
+      const cid = el.getAttribute('data-tts-id');
+      const name = el.getAttribute('data-tts-name') || '口播';
+      const paint = function (url, mime) {
+        if (!url) return;
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.preload = 'metadata';
+        audio.src = url;
+        audio.style.width = '100%';
+        const a = document.createElement('a');
+        a.className = 'utp-act';
+        a.href = url;
+        a.download = name + (/wav/i.test(mime) ? '.wav' : '.mp3');
+        a.textContent = '⬇ 下载语音';
+        el.innerHTML = '';
+        el.appendChild(audio);
+        el.appendChild(a);
+      };
+      const cached = _mfTtsUrls[cid];
+      if (cached) { paint(cached.url, cached.mime); continue; }
+      mfTtsGet(cid).then(function (blob) {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        _mfTtsUrls[cid] = { url: url, mime: blob.type || 'audio/mpeg' };
+        paint(url, blob.type || 'audio/mpeg');
+      }).catch(function () {});
+    }
   }`,
   },
   {
@@ -1646,7 +1793,7 @@ const PATCHES = [
           '<button class="utp-act" onclick="mpRejectOpen(\\'' + c.id + '\\')">↩ 打回</button>' +
           '<button class="utp-act" onclick="mpEditOpen(\\'' + c.id + '\\')">✎ 编辑</button>' +
           '<button class="utp-act danger" onclick="mpDel(\\'' + c.id + '\\')">✕</button>';`,
-    new: `      const ops = '<button class="utp-act" onclick="mfSpeak(\\'' + c.id + '\\')">🔊 试听口播</button>' + mfVideoButton(c) +
+    new: `      const ops = '<button class="utp-act" onclick="mfSpeak(\\'' + c.id + '\\')">🔊 试听口播</button>' + mfVideoButton(c) + mfTtsButton(c) +
         (isReady
           ? '<button class="utp-act" onclick="mpPublish(\\'' + c.id + '\\')">🚀 发布</button>' +
             '<button class="utp-act" onclick="mpEditOpen(\\'' + c.id + '\\')">✎ 编辑</button>' +
@@ -1661,22 +1808,24 @@ const PATCHES = [
     old: `  window.mfOpenTask = mfOpenTask; window.mfSubmit = mfSubmit; window.mfAdvance = mfAdvance;`,
     new: `  window.mfOpenTask = mfOpenTask; window.mfSubmit = mfSubmit; window.mfAdvance = mfAdvance;
   window.mfGenerateImage = mfGenerateImage; window.mfSpeak = mfSpeak;
-  window.mfVideoStart = mfVideoStart; window.mfVideoPoll = mfVideoPoll;`,
+  window.mfVideoStart = mfVideoStart; window.mfVideoPoll = mfVideoPoll;
+  window.mfTtsStart = mfTtsStart; window.mfHydrateTts = mfHydrateTts;`,
   },
   {
     name: '62. 把关页恢复未完成的视频轮询',
     old: `  function mfDraftHtml(s) {
     const contents = mfContents(s);`,
     new: `  function mfDraftHtml(s) {
-    setTimeout(function () { mfResumeVideoPolls(getState()); }, 0);
+    setTimeout(function () { mfResumeVideoPolls(getState()); mfHydrateTts(); }, 0);
     const contents = mfContents(s);`,
   },
   {
-    name: '63. 把关卡片插入视频播放器',
+    name: '63. 把关卡片插入视频播放器与语音播放器',
     old: `        mfPreviewHtml(c) +
         (c.aiNote ?`,
     new: `        mfPreviewHtml(c) +
         mfVideoHtml(c) +
+        mfTtsHtml(c) +
         (c.aiNote ?`,
   },
 ];

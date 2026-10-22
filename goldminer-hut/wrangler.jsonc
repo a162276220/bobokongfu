@@ -10,6 +10,9 @@
     "run_worker_first": ["/api/*"]
   },
 
+  // Workers AI：云端 TTS（MeloTTS，中文）。无需额外 Key，按音频分钟计费。
+  "ai": { "binding": "AI" },
+
   // AI 代理的上游与模型；Key 不写在这里，用 Worker Secret：
   //   npx wrangler secret put AI_API_KEY
   "vars": {
