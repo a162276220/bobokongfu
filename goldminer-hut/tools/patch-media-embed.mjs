@@ -78,6 +78,8 @@ const MUST_HAVE = [
   'data-tts-id',
   '⬇ 下载语音',
   '/api/ai/tts',
+  'function mfListModels()',
+  'onclick="mfListModels()"',
 ];
 
 const PATCHES = [
@@ -1809,7 +1811,47 @@ const PATCHES = [
     new: `  window.mfOpenTask = mfOpenTask; window.mfSubmit = mfSubmit; window.mfAdvance = mfAdvance;
   window.mfGenerateImage = mfGenerateImage; window.mfSpeak = mfSpeak;
   window.mfVideoStart = mfVideoStart; window.mfVideoPoll = mfVideoPoll;
-  window.mfTtsStart = mfTtsStart; window.mfHydrateTts = mfHydrateTts;`,
+  window.mfTtsStart = mfTtsStart; window.mfHydrateTts = mfHydrateTts;
+  window.mfListModels = mfListModels;`,
+  },
+  {
+    name: '64. AI 引擎面板查看服务端可用模型',
+    old: `  function mfTestAI() {`,
+    new: `  function mfListModels() {
+    showToast('正在读取可用模型…', '');
+    fetch('/api/ai/models', { credentials: 'same-origin' })
+      .then(function (r) {
+        return r.json().catch(function () { return null; }).then(function (j) {
+          if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
+          return j;
+        });
+      })
+      .then(function (j) {
+        const ids = (j && j.models) || [];
+        const videos = ids.filter(function (id) { return /video/i.test(id); });
+        const images = ids.filter(function (id) { return /image/i.test(id); });
+        const rows = ids.map(function (id) {
+          const cur = id === j.model ? '文本' : (id === j.imageModel ? '图片' : (id === j.videoModel ? '视频' : ''));
+          return '<div class="utp-row"><span class="utp-tag' + (cur ? ' t-done' : '') + '">' + (cur || '—') + '</span>' +
+            '<div class="rt" style="word-break:break-all">' + utpEsc(id) + '</div></div>';
+        }).join('') || '<div class="utp-empty">接口没有返回模型列表</div>';
+        showModal('📋 可用模型',
+          '<div class="utp-note">当前配置：文本 ' + utpEsc(j.model || '—') + ' · 图片 ' + utpEsc(j.imageModel || '—') + ' · 视频 ' + utpEsc(j.videoModel || '—') + ' · 语音 ' + utpEsc(j.ttsModel || '—') + '</div>' +
+          '<div class="utp-notice" style="margin:10px 0">视频模型：' + (videos.length ? utpEsc(videos.join('、')) : '当前分组没有视频模型') +
+          (images.length ? '<br>图片模型：' + utpEsc(images.join('、')) : '') + '</div>' +
+          '<div class="utp-rows" style="max-height:52vh;overflow:auto">' + rows + '</div>');
+      })
+      .catch(function (e) {
+        showToast('读取模型列表失败：' + ((e && e.message) || '未知原因'), 'warning');
+      });
+  }
+  function mfTestAI() {`,
+  },
+  {
+    name: '65. 配图按钮区增加模型列表入口',
+    old: `'<button class="utp-act" style="justify-content:center;padding:8px 16px" onclick="mfTestAI()">🔌 测试连接</button></div>' +`,
+    new: `'<button class="utp-act" style="justify-content:center;padding:8px 16px" onclick="mfTestAI()">🔌 测试连接</button>' +
+      '<button class="utp-act" style="justify-content:center;padding:8px 16px" onclick="mfListModels()">📋 模型列表</button></div>' +`,
   },
   {
     name: '62. 把关页恢复未完成的视频轮询',

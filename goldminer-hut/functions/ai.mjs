@@ -208,7 +208,14 @@ async function handleModels(env) {
     const ids = data && Array.isArray(data.data)
       ? data.data.map((x) => x && x.id).filter((id) => typeof id === 'string').slice(0, 50)
       : [];
-    return json({ ok: true, model: modelName(env), models: ids });
+    return json({
+      ok: true,
+      model: modelName(env),
+      imageModel: imageModel(env),
+      videoModel: videoModel(env),
+      ttsModel: TTS_MODEL,
+      models: ids,
+    });
   } catch (e) {
     return failure(e);
   }
