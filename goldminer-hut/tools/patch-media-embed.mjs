@@ -43,11 +43,15 @@ const MUST_HAVE = [
   "'<span class=\"spk-plats\">'",
   '.utp-act.on {',
   "const done = function (txt, reason) { if (cb) cb(txt, reason); };",
-  "tt.error = 'AI 直连失败：' + (reason || '未知原因')",
-  "dd.aiNote = 'AI 直连失败：' + (reason || '未知原因')",
+  "tt.error = 'AI 调用失败：' + (reason || '未知原因')",
+  "dd.aiNote = 'AI 调用失败：' + (reason || '未知原因')",
   'onclick="mfTestAI()"',
   'function mfTestAI() {',
   '真实模型还在写，等覆盖完成再点「合成成稿」',
+  'cloudFresh: function () { return this.cloud.checked',
+  'const target = this.activeCloud()',
+  "showToast('✓ 云端代理连接正常",
+  'MediaAI.probeCloud(function () {',
 ];
 
 const PATCHES = [
@@ -563,7 +567,7 @@ const PATCHES = [
             if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
             showToast('✓ 真实模型文案已覆盖', 'success');
           } else {
-            tt.error = 'AI 直连失败：' + (reason || '未知原因') + '，已保留本地模板';
+            tt.error = 'AI 调用失败：' + (reason || '未知原因') + '，已保留本地模板';
             saveState();
             if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
           }
@@ -617,7 +621,7 @@ const PATCHES = [
         const dd = mfContents(ss).find(function (x) { return x.id === nc.id; });
         if (!dd) return;
         if (txt) { dd.body = txt; dd.aiNote = ''; }
-        else { dd.aiNote = 'AI 直连失败：' + (reason || '未知原因') + '，当前为本地模板稿'; }
+        else { dd.aiNote = 'AI 调用失败：' + (reason || '未知原因') + '，当前为本地模板稿'; }
         saveState();
         if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
       });
@@ -666,6 +670,164 @@ const PATCHES = [
   }
 
   function mpApprove(cid) {`,
+  },
+  {
+    name: '41. AI 引擎支持云端代理（探活、状态、真值判断）',
+    old: `  const MediaAI = {
+    cfg: function () { const s = getState(); return (s.media && s.media.cfg) || {}; },
+    active: function () { const c = this.cfg(); return !!(c.apiBase && c.apiKey); },
+    label: function () {
+      const c = this.cfg();
+      if (c.apiBase && c.apiKey) return '真实模型 · ' + (c.model || 'deepseek-chat');
+      if (c.apiKey) return '已保存 Key · 还差 API Base 才能启用';
+      if (c.apiBase) return '已保存 Base · 还差 API Key 才能启用';
+      return '本地模板引擎';
+    },`,
+    new: `  const MediaAI = {
+    cfg: function () { const s = getState(); return (s.media && s.media.cfg) || {}; },
+    /* 云端代理：Key 在 Worker Secret 里，浏览器一个密钥都不存。
+       探活失败（未登录 / 未配置 / file://）一律回落本机直连或本地模板。 */
+    cloud: { checked: false, online: false, model: '', at: 0 },
+    cloudFresh: function () { return this.cloud.checked && (this.cloud.online || Date.now() - (this.cloud.at || 0) < 5000); },
+    probeCloud: function (cb) {
+      const self = this;
+      const finish = function (online, model) {
+        self.cloud = { checked: true, online: !!online, model: model || '', at: Date.now() };
+        if (cb) cb();
+      };
+      if (typeof fetch !== 'function' || location.protocol === 'file:') { finish(false, ''); return; }
+      try {
+        fetch('/api/ai/status', { credentials: 'same-origin' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) { finish(j && j.enabled, j && j.model); })
+          .catch(function () { finish(false, ''); });
+      } catch (e) { finish(false, ''); }
+    },
+    activeCloud: function () { return !!(this.cloud && this.cloud.online); },
+    active: function () { const c = this.cfg(); return this.activeCloud() || !!(c.apiBase && c.apiKey); },
+    label: function () {
+      const c = this.cfg();
+      if (this.activeCloud()) return '云端模型 · ' + (this.cloud.model || '服务端配置');
+      if (c.apiBase && c.apiKey) return '真实模型 · ' + (c.model || 'deepseek-chat');
+      if (c.apiKey) return '已保存 Key · 还差 API Base 才能启用';
+      if (c.apiBase) return '已保存 Base · 还差 API Key 才能启用';
+      return '本地模板引擎';
+    },`,
+  },
+  {
+    name: '42. refine 优先走云端代理，失败再回本机直连',
+    old: `    refine: function (line, title, style, cb) {
+      const c = this.cfg();
+      if (!c.apiBase || !c.apiKey) return;
+      const done = function (txt, reason) { if (cb) cb(txt, reason); };
+      try {
+        fetch(String(c.apiBase).replace(/\\/+$/, '') + '/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c.apiKey },`,
+    new: `    refine: function (line, title, style, cb) {
+      const self = this;
+      const c = this.cfg();
+      if (!this.cloudFresh()) {
+        this.probeCloud(function () { self.refine(line, title, style, cb); });
+        return;
+      }
+      if (!this.activeCloud() && (!c.apiBase || !c.apiKey)) return;
+      const done = function (txt, reason) { if (cb) cb(txt, reason); };
+      const target = this.activeCloud()
+        ? { url: '/api/ai/chat', headers: { 'Content-Type': 'application/json' } }
+        : { url: String(c.apiBase).replace(/\\/+$/, '') + '/chat/completions', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c.apiKey } };
+      try {
+        fetch(target.url, {
+          method: 'POST',
+          headers: target.headers,
+          credentials: 'same-origin',`,
+  },
+  {
+    name: '43. 云端代理的错误原因透传到回调',
+    old: `        }).then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        }).then(function (j) {`,
+    new: `        }).then(function (r) {
+          if (!r.ok) {
+            return r.json().catch(function () { return null; }).then(function (j) {
+              throw new Error((j && j.message) || ('HTTP ' + r.status));
+            });
+          }
+          return r.json();
+        }).then(function (j) {`,
+  },
+  {
+    name: '44. 启动时探活云端代理并刷新引擎标签',
+    old: `  };
+
+  function mfTagsOf(line, title) {`,
+    new: `  };
+  MediaAI.probeCloud(function () {
+    if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+  });
+
+  function mfTagsOf(line, title) {`,
+  },
+  {
+    name: '45. 测试连接同时覆盖云端代理与本机直连',
+    old: `  function mfTestAI() {
+    const c = MediaAI.cfg();
+    if (!c.apiBase || !c.apiKey) { showToast('先填 API Base 和 API Key 再测试', 'warning'); return; }
+    const base = String(c.apiBase).replace(/\\/+$/, '');
+    showToast('正在测试连接…', '');
+    fetch(base + '/models', { headers: { Authorization: 'Bearer ' + c.apiKey } })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        showToast('✓ 连接正常，真实模型可用（模型：' + (c.model || 'deepseek-chat') + '）', 'success');
+      })
+      .catch(function (e) {
+        const m = (e && e.message) || '';
+        showToast('连接失败：' + (m && m !== 'Failed to fetch' ? m : '网络错误或浏览器 CORS 拦截'), 'warning');
+      });
+  }`,
+    new: `  function mfTestAI() {
+    const c = MediaAI.cfg();
+    showToast('正在测试连接…', '');
+    MediaAI.probeCloud(function () {
+      if (MediaAI.activeCloud()) {
+        fetch('/api/ai/models', { credentials: 'same-origin' })
+          .then(function (r) {
+            if (r.ok) return r.json();
+            return r.json().catch(function () { return null; }).then(function (j) {
+              throw new Error((j && j.message) || ('HTTP ' + r.status));
+            });
+          })
+          .then(function () {
+            showToast('✓ 云端代理连接正常（模型：' + (MediaAI.cloud.model || '服务端配置') + '）', 'success');
+          })
+          .catch(function (e) {
+            showToast('云端代理测试失败：' + ((e && e.message) || '未知原因'), 'warning');
+          });
+        return;
+      }
+      if (!c.apiBase || !c.apiKey) { showToast('云端未配置，本机也没填 API Base / Key', 'warning'); return; }
+      const base = String(c.apiBase).replace(/\\/+$/, '');
+      fetch(base + '/models', { headers: { Authorization: 'Bearer ' + c.apiKey } })
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          showToast('✓ 连接正常，真实模型可用（模型：' + (c.model || 'deepseek-chat') + '）', 'success');
+        })
+        .catch(function (e) {
+          const m = (e && e.message) || '';
+          showToast('连接失败：' + (m && m !== 'Failed to fetch' ? m : '网络错误或浏览器 CORS 拦截'), 'warning');
+        });
+    });
+  }`,
+  },
+  {
+    name: '46. 引擎配置区说明云端模式',
+    old: `      '</div><div class="utp-note" style="margin-top:6px">Key 只存本机 localStorage，不上传。直连失败自动回落本地模板，不会卡住流程。</div></details>';`,
+    new: `      '</div><div class="utp-note" style="margin-top:6px">' +
+      (MediaAI.activeCloud()
+        ? '云端代理已启用：Key 存在服务端，本机无需填写（模型：' + utpEsc(MediaAI.cloud.model || '服务端配置') + '）。'
+        : 'Key 只存本机 localStorage，不上传。') +
+      '调用失败自动回落本地模板，不会卡住流程。</div></details>';`,
   },
 ];
 

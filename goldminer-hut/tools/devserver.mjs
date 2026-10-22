@@ -29,8 +29,15 @@ const db = fakeD1(DB_FILE);
 // 迁移全是 IF NOT EXISTS，重复执行安全，所以每次启动都过一遍。
 await db.exec(await readFile(MIGRATION, 'utf8'));
 
-/* Worker 只在非 /api/ 路径上用 ASSETS；静态资源由本进程自己发，这里给个空壳。 */
-const env = { DB: db, ASSETS: { fetch: () => new Response('not found', { status: 404 }) } };
+/* Worker 只在非 /api/ 路径上用 ASSETS；静态资源由本进程自己发，这里给个空壳。
+   AI_* 由环境变量注入（本地不配就是「云端未启用」，前端自动回退本机直连）。 */
+const env = {
+  DB: db,
+  ASSETS: { fetch: () => new Response('not found', { status: 404 }) },
+  AI_API_BASE: process.env.AI_API_BASE || '',
+  AI_API_KEY: process.env.AI_API_KEY || '',
+  AI_MODEL: process.env.AI_MODEL || '',
+};
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',

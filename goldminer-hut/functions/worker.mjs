@@ -7,6 +7,7 @@
 
 import { handleApp } from './handler.mjs';
 import { handleNewmedia, refreshHotLive } from './newmedia.mjs';
+import { handleAI } from './ai.mjs';
 import { UserContextError } from './auth.mjs';
 import { openDb } from '../backend/d1-db.mjs';
 import {
@@ -116,6 +117,7 @@ async function handleMe(db, request) {
 async function route(url, { env, request, secure }) {
   const pathname = url.pathname;
   if (pathname.startsWith('/api/nm/')) return handleNewmedia({ request, env, url });
+  if (pathname.startsWith('/api/ai/')) return handleAI({ request, env, url });
   if (pathname === '/api/app') return handleDataPlane(env.DB, request);
   if (pathname === '/api/health') return json({ ok: true });
   if (pathname === '/api/auth/me') return handleMe(env.DB, request);

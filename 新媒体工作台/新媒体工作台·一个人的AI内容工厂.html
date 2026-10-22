@@ -662,6 +662,8 @@ function emptyState(title, sub) {
 
 /* ---------------- 状态 ---------------- */
 const defaultSettings = { apiBase: '', apiKey: '', model: 'gpt-4o-mini', token: '', tone: '克制' };
+/* 云端 AI 代理的运行时状态：不落 localStorage。Key 在 Worker Secret 里。 */
+const cloudAI = { checked: false, online: false, model: '' };
 let S = {
   data: { topic: [], hot: [], task: [], content: [], ip: [], pub: [], stat: [] },
   meta: { seededAt: '', lastHotAt: '', hotSource: '', hotError: '', lastSync: '', demo: false, userTouched: false },
@@ -1379,12 +1381,25 @@ async function apiFetch(path, opts) {
   let data = null;
   try { data = await res.json(); } catch { data = null; }
   if (!res.ok) {
-    const err = new Error((data && data.error) || ('http_' + res.status));
+    const err = new Error((data && (data.message || data.error)) || ('http_' + res.status));
     err.status = res.status;
     err.code = (data && data.error) || '';
     throw err;
   }
   return data;
+}
+
+async function probeCloudAI() {
+  try {
+    const st = await apiFetch('/api/ai/status');
+    cloudAI.online = !!(st && st.enabled);
+    cloudAI.model = (st && st.model) || '';
+  } catch {
+    cloudAI.online = false;
+    cloudAI.model = '';
+  }
+  cloudAI.checked = true;
+  return cloudAI;
 }
 
 function cloudLabel() {
@@ -1677,6 +1692,7 @@ async function submitAuth(form) {
     closeModal();
     toast(mode === 'register' ? '账号已创建，云端同步已开启' : '登录成功，正在同步数据', 'ok');
     await connectCloud({ silent: true });
+    await probeCloudAI();
     render();
   } catch (e) {
     showErr(authErrorText(e.code || e.message));
@@ -1690,6 +1706,9 @@ async function logoutCloud() {
   S.settings.token = '';
   S.cloud.user = null;
   S.cloud.status = 'local';
+  cloudAI.checked = true;
+  cloudAI.online = false;
+  cloudAI.model = '';
   S.meta.lastSync = '';
   saveLocal();
   closeModal();
@@ -2067,11 +2086,29 @@ async function llmCall(prompt) {
   }
 }
 
+async function cloudLLMCall(prompt) {
+  const data = await apiFetch('/api/ai/chat', {
+    method: 'POST',
+    body: {
+      temperature: 0.85,
+      messages: [{ role: 'system', content: prompt.sys }, { role: 'user', content: prompt.user }],
+    },
+  });
+  const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  if (!text || !String(text).trim()) throw new Error('大模型没有返回正文');
+  return String(text).trim();
+}
+
 async function generateText(topic, task, ip) {
-  if (S.settings.apiKey) {
-    const prompt = llmPrompt(topic, task, ip);
-    return await llmCall(prompt);
+  const prompt = llmPrompt(topic, task, ip);
+  if (cloudAI.online) {
+    try { return await cloudLLMCall(prompt); }
+    catch (e) {
+      // 云端失败且本机也没配 Key 时把原因交给任务卡片，避免静默出模板稿
+      if (!S.settings.apiKey) throw e;
+    }
   }
+  if (S.settings.apiKey) return await llmCall(prompt);
   return mockGenerate(topic, task, ip);
 }
 
@@ -2781,15 +2818,15 @@ function renderSettings() {
         </div>
         <div class="set-card">
           <h3>大模型</h3>
-          <div class="desc">不填 API Key 时使用内置本地模拟引擎，所有产线都能出稿；填入 OpenAI 兼容接口后，任务会优先调用真实模型。Key 只保存在本机 localStorage，不会写入云端，也不会发给我们。</div>
+          <div class="desc">${cloudAI.online ? '云端代理已启用：API Key 存在服务端 Secret 里，本机无需填写，登录后即可调用真实模型。下面的本机配置仅用于未登录 / 离线时直连自建接口。' : '不填 API Key 时使用内置本地模拟引擎，所有产线都能出稿；填入 OpenAI 兼容接口后，任务会优先调用真实模型。Key 只保存在本机 localStorage，不会写入云端，也不会发给我们。'}</div>
           <form data-form="llm">
             <div class="field"><label>API Base <span class="opt">兼容 OpenAI</span></label><input name="apiBase" value="${esc(S.settings.apiBase)}" placeholder="https://api.openai.com/v1"></div>
-            <div class="field"><label>API Key</label><input name="apiKey" type="password" value="${esc(S.settings.apiKey)}" placeholder="sk-...（留空则使用本地引擎）" autocomplete="off"></div>
+            <div class="field"><label>API Key</label><input name="apiKey" type="password" value="${esc(S.settings.apiKey)}" placeholder="${cloudAI.online ? '云端已托管，留空即可' : 'sk-...（留空则使用本地引擎）'}" autocomplete="off"></div>
             <div class="field"><label>模型</label><input name="model" value="${esc(S.settings.model)}" placeholder="gpt-4o-mini"></div>
             <div class="field"><label>语气</label><select name="tone">${['克制', '锋利', '温柔', '幽默'].map((x) => `<option ${S.settings.tone === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
             <div class="form-actions"><button class="btn ghost" type="button" data-action="llm-test">测试连接</button><button class="btn ink" type="submit">保存设置</button></div>
           </form>
-          <div class="api-note">当前引擎：${S.settings.apiKey ? '真实大模型 · ' + esc(S.settings.model || '默认模型') : '本地模拟引擎（无需联网）'}</div>
+          <div class="api-note">当前引擎：${cloudAI.online ? '云端大模型 · ' + esc(cloudAI.model || '服务端配置') : (S.settings.apiKey ? '真实大模型 · ' + esc(S.settings.model || '默认模型') : '本地模拟引擎（无需联网）')}</div>
         </div>
         <div class="set-card">
           <h3>热点雷达</h3>
@@ -2820,7 +2857,7 @@ function renderSettings() {
           <div class="set-row"><span class="k">版本</span><span class="v">v1.0 · 2026-10</span></div>
           <div class="set-row"><span class="k">本地模式</span><span class="v">localStorage · 离线可用</span></div>
           <div class="set-row"><span class="k">在线模式</span><span class="v">Worker + D1 · 7 张 nm_* 表</span></div>
-          <div class="set-row"><span class="k">数据引擎</span><span class="v">${S.settings.apiKey ? '真实大模型 + 本地数据模拟' : '本地模拟引擎'}</span></div>
+          <div class="set-row"><span class="k">数据引擎</span><span class="v">${cloudAI.online ? '云端大模型 · ' + esc(cloudAI.model || '服务端配置') : (S.settings.apiKey ? '真实大模型 + 本地数据模拟' : '本地模拟引擎')}</span></div>
         </div>
       </div>
     </section>`;
@@ -2868,9 +2905,19 @@ async function importAllData(file) {
 }
 
 async function testLLM() {
-  if (!S.settings.apiKey) { toast('还没有填 API Key，当前使用本地模拟引擎', 'warn'); return; }
-  const base = (S.settings.apiBase || 'https://api.openai.com/v1').replace(/\/+$/, '');
   toast('正在测试大模型连接…', '');
+  await probeCloudAI();
+  if (cloudAI.online) {
+    try {
+      await apiFetch('/api/ai/models');
+      toast('云端代理正常，真实大模型可用（模型：' + (cloudAI.model || '服务端配置') + '）', 'ok');
+    } catch (e) {
+      toast('云端代理测试失败：' + (e.message || '未知原因'), 'bad');
+    }
+    return;
+  }
+  if (!S.settings.apiKey) { toast('云端未配置，本机也没填 API Key，当前使用本地模拟引擎', 'warn'); return; }
+  const base = (S.settings.apiBase || 'https://api.openai.com/v1').replace(/\/+$/, '');
   try {
     const res = await fetch(base + '/models', { headers: { authorization: 'Bearer ' + S.settings.apiKey } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -3224,6 +3271,7 @@ function init() {
       updateSyncUI();
     });
   }
+  probeCloudAI().then(() => { if (S.ui.view === 'settings') render(); });
   window.addEventListener('hashchange', () => {
     const k = (location.hash || '').replace(/^#\/?/, '');
     if (VIEWS.some((v) => v.key === k) && k !== S.ui.view) { S.ui.view = k; render(); }
