@@ -37,6 +37,7 @@ const env = {
   AI_API_BASE: process.env.AI_API_BASE || '',
   AI_API_KEY: process.env.AI_API_KEY || '',
   AI_MODEL: process.env.AI_MODEL || '',
+  AI_IMAGE_MODEL: process.env.AI_IMAGE_MODEL || '',
 };
 
 const MIME = {

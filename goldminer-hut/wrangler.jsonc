@@ -14,7 +14,8 @@
   //   npx wrangler secret put AI_API_KEY
   "vars": {
     "AI_API_BASE": "https://api.agnes-ai.cn/v1",
-    "AI_MODEL": "agnes-3.0-flash"
+    "AI_MODEL": "agnes-3.0-flash",
+    "AI_IMAGE_MODEL": "agnes-image-2.5-flash"
   },
 
   "d1_databases": [

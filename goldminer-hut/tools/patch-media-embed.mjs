@@ -62,6 +62,11 @@ const MUST_HAVE = [
   'ip-avatar-pet',
   'class="ip-badge"',
   'id="ipName2"',
+  'function mfGenerateImage(taskId, force)',
+  'function mfSpeakText(text)',
+  'class="tk-image"',
+  'tk-img-error',
+  '/api/ai/image',
 ];
 
 const PATCHES = [
@@ -926,6 +931,14 @@ const PATCHES = [
   .ip-pet-state { font-size: 10.5px; color: var(--text-dim); }
   .ip-pet-pick.on .ip-pet-state { color: var(--color-success); }
   @media (max-width: 640px) { .ip-pet-picker { grid-template-columns: repeat(2, 1fr); } }
+  .mf-task .tk-image { margin-top: 9px; border: 1px solid var(--line-soft); border-radius: 8px; overflow: hidden; background: var(--bg-card); }
+  .mf-task .tk-image img { display: block; width: 100%; max-height: 190px; object-fit: cover; }
+  .mf-task .tk-image.pending { padding: 16px; text-align: center; font-size: 11.5px; color: var(--text-muted); border-style: dashed; }
+  .mf-task .tk-img-error { margin-top: 7px; font-size: 11px; line-height: 1.6; color: var(--color-danger); overflow-wrap: anywhere; }
+  .mf-pre.cover .mf-cover img { display: block; width: 100%; height: auto; }
+  @media (max-width: 640px) {
+    .page-media .mf-task .tk-image img, .page-media-classic .mf-task .tk-image img { max-height: 160px; }
+  }
 </style>`,
   },
   {
@@ -959,7 +972,7 @@ const PATCHES = [
       const pct = Math.round(step / 3 * 100);
       const done = step >= 3;
       const failed = !!t.error;
-      const statusText = done ? '已成稿' : (t._aiPending ? 'AI 正在写稿' : (step === 0 ? '排队中' : MF_STEPS[step] + '完成'));
+      const statusText = done ? '已成稿' : (t._aiPending ? 'AI 正在写稿' : (t._imgPending ? '生成配图中' : (step === 0 ? '排队中' : MF_STEPS[step] + '完成')));
       const stepNames = ['写稿', '配图/分镜', '合成成稿'];
       const stepsHtml = stepNames.map(function (name, i) {
         const n = i + 1;
@@ -973,9 +986,17 @@ const PATCHES = [
       } else if (step < 3) {
         ops.push('<button class="utp-act" onclick="mfAdvance(\\'' + t.id + '\\')">▸ ' + MF_STEPS[step + 1] + '</button>');
       }
+      if (step >= 2) {
+        ops.push('<button class="utp-act" onclick="mfGenerateImage(\\'' + t.id + '\\', ' + (t.image ? 'true' : 'false') + ')">' + (t.image ? '🖼 重画配图' : '🖼 生成配图') + '</button>');
+      }
       const meta = [];
       if (t.ipId) meta.push('<span>🎭 ' + utpEsc(ipNameOf(s, t.ipId)) + '</span>');
       if (step >= 1) meta.push('<span>' + (t.text === 'real' ? '⚡ 真实模型' : '🧩 本地模板') + '</span>');
+      const imgSrc = t.image && t.image.src;
+      const imgHtml = imgSrc
+        ? '<div class="tk-image"><img src="' + utpEsc(imgSrc) + '" alt="AI 配图" loading="lazy"></div>'
+        : (t._imgPending ? '<div class="tk-image pending">🖼 正在生成配图…</div>' : '');
+      const imgErr = t.imageError ? '<div class="tk-img-error">⚠ ' + utpEsc(t.imageError) + '</div>' : '';
       return '<div class="mf-task' + (done ? ' is-done' : '') + (failed ? ' is-failed' : '') + '">' +
         '<div class="tk-top"><span class="utp-tag">' + line.n + '</span>' +
         '<span class="tk-state' + (done ? ' ok' : '') + '">' + statusText + '</span>' +
@@ -984,6 +1005,7 @@ const PATCHES = [
         '<div class="tk-title">' + utpEsc(t.title) + '</div>' +
         '<div class="mf-steps">' + stepsHtml + '</div>' +
         (meta.length ? '<div class="tk-meta">' + meta.join('') + '</div>' : '') +
+        imgHtml + imgErr +
         (failed ? '<details class="tk-error"><summary>⚠ AI 调用失败，已保留本地模板</summary><div>' + utpEsc(t.error) + '</div></details>' : '') +
         (ops.length ? '<div class="mf-ops">' + ops.join('') + '</div>' : '') +
         '</div>';
@@ -1207,6 +1229,232 @@ const PATCHES = [
     refreshPage('media');
     showToast('✓ 形象已保存', 'success');
   }`,
+  },
+  {
+    name: '54. 自动配图（Agnes 图片模型）与本机 TTS 试听',
+    old: `  const MF_STEPS = ['排队中', '写稿', '配图/分镜', '合成成稿'];`,
+    new: `  const MF_STEPS = ['排队中', '写稿', '配图/分镜', '合成成稿'];
+  function mfImageRatio(line) {
+    if (line === 'short_form') return '3:4';
+    if (line === 'voiceover' || line === 'drama') return '9:16';
+    return '16:9';
+  }
+  function mfImagePrompt(t, line, ip, ratio) {
+    const shape = ratio === '9:16' ? '竖屏' : (ratio === '16:9' ? '横屏' : '竖版');
+    const bits = [
+      '为一条中文' + line.n + '内容生成' + shape + '封面配图。',
+      '标题：' + t.title + '。',
+      '风格：' + (t.style || '干净、专业、有质感') + '。',
+    ];
+    if (ip) bits.push('画面角色：' + ip.name + '，' + String(ip.persona || '').slice(0, 200) + '。');
+    bits.push('适合中文社交媒体，构图留白，不要出现文字、水印、logo。');
+    return bits.join('').slice(0, 1800);
+  }
+  function mfCompressImage(src, maxW) {
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        try {
+          const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+          if (!w0 || !h0) { resolve(src); return; }
+          const scale = Math.min(1, maxW / w0);
+          const w = Math.max(1, Math.round(w0 * scale)), h = Math.max(1, Math.round(h0 * scale));
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(cv.toDataURL('image/jpeg', 0.82));
+        } catch (e) { resolve(src); }
+      };
+      img.onerror = function () { resolve(src); };
+      img.src = src;
+    });
+  }
+  function mfGenerateImage(taskId, force) {
+    const s = getState();
+    const t = mfTasks(s).find(function (x) { return x.id === taskId; });
+    if (!t || (t.step || 0) < 2) return;
+    if (t._imgPending) return;
+    if (t.image && !force) return;
+    if (!MediaAI.activeCloud()) {
+      if (force) showToast('云端 AI 未启用，先用本地封面', 'warning');
+      return;
+    }
+    const line = mfLineOf(t.line);
+    const ip = t.ipId ? ipsOf(s).find(function (x) { return x.id === t.ipId; }) : null;
+    const ratio = mfImageRatio(t.line);
+    const prompt = mfImagePrompt(t, line, ip, ratio);
+    t._imgPending = true;
+    t.imageError = '';
+    saveState();
+    if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+    fetch('/api/ai/image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ prompt: prompt, ratio: ratio }),
+    }).then(function (r) {
+      return r.json().catch(function () { return null; }).then(function (j) {
+        if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
+        return j;
+      });
+    }).then(function (j) {
+      const src = j && j.image && j.image.src;
+      if (!src) throw new Error('没有返回图片');
+      return mfCompressImage(src, 900).then(function (small) {
+        const ss = getState();
+        const tt = mfTasks(ss).find(function (x) { return x.id === taskId; });
+        if (!tt) return;
+        tt._imgPending = false;
+        tt.imageError = '';
+        tt.image = { src: small, ratio: ratio, model: (j.image && j.image.model) || '', prompt: prompt, at: new Date().toISOString() };
+        const cc = mfContents(ss).filter(function (x) { return x.taskId === taskId; })[0];
+        if (cc) cc.image = tt.image;
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+        showToast('✓ 配图已生成（' + ((j.image && j.image.model) || '云端') + '）', 'success');
+      });
+    }).catch(function (e) {
+      const ss = getState();
+      const tt = mfTasks(ss).find(function (x) { return x.id === taskId; });
+      if (tt) {
+        tt._imgPending = false;
+        tt.imageError = '配图生成失败：' + ((e && e.message) || '未知原因');
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+      }
+      showToast('配图生成失败：' + ((e && e.message) || '未知原因'), 'warning');
+    });
+  }
+  function mfSpeakText(text) {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      showToast('当前浏览器不支持语音合成', 'warning'); return;
+    }
+    const clean = String(text || '')
+      .replace(/\`\`\`[\\s\\S]*?\`\`\`/g, ' ')
+      .replace(/[#>*_\`]/g, '')
+      .replace(/\\s+/g, ' ')
+      .trim()
+      .slice(0, 1500);
+    if (!clean) { showToast('没有可朗读的正文', 'warning'); return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = 'zh-CN';
+    u.rate = 1.02;
+    const zh = window.speechSynthesis.getVoices().filter(function (v) { return /zh|Chinese/i.test(v.lang + ' ' + v.name); })[0];
+    if (zh) u.voice = zh;
+    window.speechSynthesis.speak(u);
+    showToast('🔊 正在朗读（本机语音）', 'info');
+  }
+  function mfSpeak(cid) {
+    const c = mfContents(getState()).find(function (x) { return x.id === cid; });
+    if (!c) return;
+    let body = c.body || '';
+    if (c.line === 'short_form') {
+      try { const j = JSON.parse(body); body = j.body || body; } catch (e) {}
+    }
+    mfSpeakText(body);
+  }`,
+  },
+  {
+    name: '55. 配图生成中禁止直接合成',
+    old: `    const step = t.step || 0;
+    if (step >= 3) return;
+    t.step = step + 1;`,
+    new: `    const step = t.step || 0;
+    if (step >= 3) return;
+    if (step === 2 && t._imgPending) { showToast('配图还在生成，稍等', 'info'); return; }
+    t.step = step + 1;`,
+  },
+  {
+    name: '56. 成稿时把配图一起带入内容',
+    old: `        ipId: ipNote ? ipNote.id : (t.ipId || null),
+        status: 'pending_review', version: 1, reviewNote: '',`,
+    new: `        ipId: ipNote ? ipNote.id : (t.ipId || null),
+        image: t.image || null,
+        status: 'pending_review', version: 1, reviewNote: '',`,
+  },
+  {
+    name: '57. 进入配图/分镜阶段自动生成配图',
+    old: `    saveState();
+    refreshPage('media');
+    if (t.step === 3) showToast('✓ 已成稿，进「把关中心」待处理' + (ipNote ? ' · 🎭 ' + ipNote.name + ' 出演 +1（定妆图已锁定）' : ''), 'success');
+  }`,
+    new: `    saveState();
+    refreshPage('media');
+    if (t.step === 2 && !t.image) mfGenerateImage(t.id);
+    if (t.step === 3) showToast('✓ 已成稿，进「把关中心」待处理' + (ipNote ? ' · 🎭 ' + ipNote.name + ' 出演 +1（定妆图已锁定）' : ''), 'success');
+  }`,
+  },
+  {
+    name: '58. 成稿预览优先显示 AI 配图',
+    old: `  function mfPreviewHtml(c) {
+    if (c.line === 'short_form') {
+      let j = null;
+      try { j = JSON.parse(c.body || ''); } catch (e) { j = null; }
+      const main = j ? j.cover_main : c.title;
+      const sub = j ? j.cover_sub : '';
+      const body = j ? j.body : (c.body || '');
+      return '<div class="mf-pre cover"><div class="mf-cover">' + mfCoverSvg(main, sub) + '</div>' +
+        '<div style="flex:1;min-width:0;white-space:pre-line">' + utpEsc(body) + '</div></div>';
+    }
+    return '<div class="mf-pre">' + mfMd2Html(c.body || '（暂无正文）') + '</div>';
+  }`,
+    new: `  function mfPreviewHtml(c) {
+    const img = c && c.image && c.image.src;
+    const imgBox = img
+      ? '<div class="mf-cover"><img src="' + utpEsc(img) + '" alt="AI 配图" style="display:block;width:100%;height:auto"></div>'
+      : '';
+    if (c.line === 'short_form') {
+      let j = null;
+      try { j = JSON.parse(c.body || ''); } catch (e) { j = null; }
+      const main = j ? j.cover_main : c.title;
+      const sub = j ? j.cover_sub : '';
+      const body = j ? j.body : (c.body || '');
+      return '<div class="mf-pre cover">' + (imgBox || '<div class="mf-cover">' + mfCoverSvg(main, sub) + '</div>') +
+        '<div style="flex:1;min-width:0;white-space:pre-line">' + utpEsc(body) + '</div></div>';
+    }
+    if (imgBox) {
+      return '<div class="mf-pre cover">' + imgBox +
+        '<div style="flex:1;min-width:0">' + mfMd2Html(c.body || '（暂无正文）') + '</div></div>';
+    }
+    return '<div class="mf-pre">' + mfMd2Html(c.body || '（暂无正文）') + '</div>';
+  }`,
+  },
+  {
+    name: '59. 公众号封面对优先用 AI 位图',
+    old: `  function mfCoverPng(c) {
+    return new Promise(function (resolve) {
+      try {`,
+    new: `  function mfCoverPng(c) {
+    return new Promise(function (resolve) {
+      if (c && c.image && /^data:image\\//.test(c.image.src || '')) { resolve(c.image.src); return; }
+      try {`,
+  },
+  {
+    name: '60. 把关中心增加本机语音试听',
+    old: `      const ops = isReady
+        ? '<button class="utp-act" onclick="mpPublish(\\'' + c.id + '\\')">🚀 发布</button>' +
+          '<button class="utp-act" onclick="mpEditOpen(\\'' + c.id + '\\')">✎ 编辑</button>' +
+          '<button class="utp-act danger" onclick="mpDel(\\'' + c.id + '\\')">✕ 删除</button>'
+        : '<button class="utp-act" onclick="mpApprove(\\'' + c.id + '\\')">✓ 通过</button>' +
+          '<button class="utp-act" onclick="mpRejectOpen(\\'' + c.id + '\\')">↩ 打回</button>' +
+          '<button class="utp-act" onclick="mpEditOpen(\\'' + c.id + '\\')">✎ 编辑</button>' +
+          '<button class="utp-act danger" onclick="mpDel(\\'' + c.id + '\\')">✕</button>';`,
+    new: `      const ops = '<button class="utp-act" onclick="mfSpeak(\\'' + c.id + '\\')">🔊 试听口播</button>' +
+        (isReady
+          ? '<button class="utp-act" onclick="mpPublish(\\'' + c.id + '\\')">🚀 发布</button>' +
+            '<button class="utp-act" onclick="mpEditOpen(\\'' + c.id + '\\')">✎ 编辑</button>' +
+            '<button class="utp-act danger" onclick="mpDel(\\'' + c.id + '\\')">✕ 删除</button>'
+          : '<button class="utp-act" onclick="mpApprove(\\'' + c.id + '\\')">✓ 通过</button>' +
+            '<button class="utp-act" onclick="mpRejectOpen(\\'' + c.id + '\\')">↩ 打回</button>' +
+            '<button class="utp-act" onclick="mpEditOpen(\\'' + c.id + '\\')">✎ 编辑</button>' +
+            '<button class="utp-act danger" onclick="mpDel(\\'' + c.id + '\\')">✕</button>');`,
+  },
+  {
+    name: '61. 导出配图与语音函数到全局',
+    old: `  window.mfOpenTask = mfOpenTask; window.mfSubmit = mfSubmit; window.mfAdvance = mfAdvance;`,
+    new: `  window.mfOpenTask = mfOpenTask; window.mfSubmit = mfSubmit; window.mfAdvance = mfAdvance;
+  window.mfGenerateImage = mfGenerateImage; window.mfSpeak = mfSpeak;`,
   },
 ];
 
