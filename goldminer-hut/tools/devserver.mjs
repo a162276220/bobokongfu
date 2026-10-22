@@ -38,6 +38,8 @@ const env = {
   AI_API_KEY: process.env.AI_API_KEY || '',
   AI_MODEL: process.env.AI_MODEL || '',
   AI_IMAGE_MODEL: process.env.AI_IMAGE_MODEL || '',
+  AI_VIDEO_MODEL: process.env.AI_VIDEO_MODEL || '',
+  AI_VIDEO_POLL_BASE: process.env.AI_VIDEO_POLL_BASE || '',
 };
 
 const MIME = {

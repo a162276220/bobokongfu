@@ -69,6 +69,10 @@ const MUST_HAVE = [
   'class="tk-image"',
   'tk-img-error',
   '/api/ai/image',
+  'function mfVideoStart(cid)',
+  'function mfVideoPoll(cid, n)',
+  'mf-video-status',
+  '🎬 生成视频',
 ];
 
 const PATCHES = [
@@ -938,8 +942,15 @@ const PATCHES = [
   .mf-task .tk-image.pending { padding: 16px; text-align: center; font-size: 11.5px; color: var(--text-muted); border-style: dashed; }
   .mf-task .tk-img-error { margin-top: 7px; font-size: 11px; line-height: 1.6; color: var(--color-danger); overflow-wrap: anywhere; }
   .mf-pre.cover .mf-cover img { display: block; width: 100%; height: auto; }
+  .mf-video { margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+  .mf-video video { width: 100%; max-height: 420px; border-radius: 10px; background: #000; }
+  .mf-video .utp-act { align-self: flex-start; }
+  .mf-video-status { margin: 8px 0; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 8px; font-size: 11.5px; color: var(--text-muted); }
+  .mf-video-status.err { color: var(--color-danger); border-color: rgba(232, 74, 60, .3); background: rgba(232, 74, 60, .04); }
+  .utp-act:disabled { opacity: .6; cursor: default; }
   @media (max-width: 640px) {
     .page-media .mf-task .tk-image img, .page-media-classic .mf-task .tk-image img { max-height: 160px; }
+    .mf-video video { max-height: 360px; }
   }
 </style>`,
   },
@@ -1398,6 +1409,156 @@ const PATCHES = [
       try { const j = JSON.parse(body); body = j.body || body; } catch (e) {}
     }
     mfSpeakText(body);
+  }
+  const _mfVideoTimers = {};
+  function mfVideoPrompt(c) {
+    const line = mfLineOf(c.line);
+    const ip = c.ipId ? ipsOf(getState()).find(function (x) { return x.id === c.ipId; }) : null;
+    let body = c.body || '';
+    if (c.line === 'short_form') {
+      try { const j = JSON.parse(body); body = j.body || body; } catch (e) {}
+    }
+    const bits = [
+      '为一条中文' + line.n + '内容生成 5 秒竖屏短视频。',
+      '标题：' + c.title + '。',
+      '内容基调：' + String(body).replace(/[#*_\`>\\n]+/g, ' ').slice(0, 300) + '。',
+    ];
+    if (ip) bits.push('画面角色：' + ip.name + '，' + String(ip.persona || '').slice(0, 160) + '。');
+    bits.push('竖屏 9:16，画面干净有质感，镜头运动自然，不要出现文字、水印、logo。');
+    return bits.join('').slice(0, 1800);
+  }
+  function mfVideoHtml(c) {
+    const v = c && c.video;
+    if (!v) return '';
+    if (v.status === 'processing') {
+      return '<div class="mf-video-status">🎬 视频生成中' + (v.progress ? ' · ' + v.progress + '%' : '') + '，可离开页面，回来会继续查询</div>';
+    }
+    if (v.status === 'failed') {
+      return '<div class="mf-video-status err">⚠ ' + utpEsc(v.error || '视频生成失败') + '</div>';
+    }
+    if (v.url) {
+      return '<div class="mf-video"><video controls preload="metadata" src="' + utpEsc(v.url) + '"></video>' +
+        '<a class="utp-act" href="' + utpEsc(v.url) + '" target="_blank" rel="noopener" download>⬇ 下载视频</a></div>';
+    }
+    return '';
+  }
+  function mfVideoButton(c) {
+    const v = c.video || {};
+    const busy = v.status === 'processing';
+    const label = busy ? '🎬 视频生成中…' : (v.url ? '🎬 重生成视频' : (v.status === 'failed' ? '🎬 重试视频' : '🎬 生成视频'));
+    return '<button class="utp-act"' + (busy ? ' disabled' : '') + ' onclick="mfVideoStart(\\'' + c.id + '\\')">' + label + '</button>';
+  }
+  function mfVideoStart(cid) {
+    const s = getState();
+    const c = mfContents(s).find(function (x) { return x.id === cid; });
+    if (!c) return;
+    if (!MediaAI.activeCloud()) { showToast('云端 AI 未启用', 'warning'); return; }
+    if (c.video && c.video.status === 'processing') { showToast('视频正在生成，稍等', 'info'); return; }
+    if (mfContents(s).some(function (x) { return x.id !== cid && x.video && x.video.status === 'processing'; })) {
+      showToast('已有视频在生成，稍后再试', 'info'); return;
+    }
+    const prompt = mfVideoPrompt(c);
+    c.video = { status: 'processing', videoId: '', progress: 0, error: '', startedAt: new Date().toISOString(), prompt: prompt };
+    saveState();
+    if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+    fetch('/api/ai/video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ prompt: prompt }),
+    }).then(function (r) {
+      return r.json().catch(function () { return null; }).then(function (j) {
+        if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
+        return j;
+      });
+    }).then(function (j) {
+      const ss = getState();
+      const cc = mfContents(ss).find(function (x) { return x.id === cid; });
+      if (!cc || !cc.video) return;
+      cc.video.videoId = j.videoId || '';
+      cc.video.status = 'processing';
+      saveState();
+      if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+      mfVideoPoll(cid, 0);
+    }).catch(function (e) {
+      const ss = getState();
+      const cc = mfContents(ss).find(function (x) { return x.id === cid; });
+      if (cc && cc.video) {
+        cc.video.status = 'failed';
+        cc.video.error = '创建视频任务失败：' + ((e && e.message) || '未知原因');
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+      }
+      showToast('视频生成失败：' + ((e && e.message) || '未知原因'), 'warning');
+    });
+  }
+  function mfVideoPoll(cid, n) {
+    if (_mfVideoTimers[cid]) return;
+    _mfVideoTimers[cid] = setTimeout(function () {
+      _mfVideoTimers[cid] = null;
+      const s = getState();
+      const c = mfContents(s).find(function (x) { return x.id === cid; });
+      if (!c || !c.video || c.video.status !== 'processing' || !c.video.videoId) return;
+      fetch('/api/ai/video?video_id=' + encodeURIComponent(c.video.videoId), { credentials: 'same-origin' })
+        .then(function (r) {
+          return r.json().catch(function () { return null; }).then(function (j) {
+            if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
+            return j;
+          });
+        })
+        .then(function (j) {
+          const ss = getState();
+          const cc = mfContents(ss).find(function (x) { return x.id === cid; });
+          if (!cc || !cc.video) return;
+          const st = String(j.status || '').toLowerCase();
+          if (typeof j.progress === 'number') cc.video.progress = j.progress;
+          if (j.url) cc.video.url = j.url;
+          if (['succeeded', 'success', 'completed', 'done'].indexOf(st) >= 0 && j.url) {
+            cc.video.status = 'succeeded';
+            cc.video.doneAt = new Date().toISOString();
+            saveState();
+            if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+            showToast('✓ 视频已生成', 'success');
+            return;
+          }
+          if (['failed', 'error', 'cancelled'].indexOf(st) >= 0) {
+            cc.video.status = 'failed';
+            cc.video.error = j.message || '视频生成失败';
+            saveState();
+            if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+            showToast('视频生成失败：' + (j.message || '未知原因'), 'warning');
+            return;
+          }
+          cc.video.status = 'processing';
+          saveState();
+          if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+          if (n < 120) mfVideoPoll(cid, n + 1);
+          else {
+            cc.video.status = 'failed';
+            cc.video.error = '视频生成超时，请稍后重试';
+            saveState();
+            if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+          }
+        })
+        .catch(function (e) {
+          if (n < 120) { mfVideoPoll(cid, n + 1); return; }
+          const ss = getState();
+          const cc = mfContents(ss).find(function (x) { return x.id === cid; });
+          if (cc && cc.video) {
+            cc.video.status = 'failed';
+            cc.video.error = '视频状态查询失败：' + ((e && e.message) || '网络错误');
+            saveState();
+            if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+          }
+        });
+    }, n === 0 ? 1500 : 5000);
+  }
+  function mfResumeVideoPolls(s) {
+    mfContents(s).forEach(function (c) {
+      if (c.video && c.video.status === 'processing' && c.video.videoId && !_mfVideoTimers[c.id]) {
+        mfVideoPoll(c.id, 0);
+      }
+    });
   }`,
   },
   {
@@ -1485,7 +1646,7 @@ const PATCHES = [
           '<button class="utp-act" onclick="mpRejectOpen(\\'' + c.id + '\\')">↩ 打回</button>' +
           '<button class="utp-act" onclick="mpEditOpen(\\'' + c.id + '\\')">✎ 编辑</button>' +
           '<button class="utp-act danger" onclick="mpDel(\\'' + c.id + '\\')">✕</button>';`,
-    new: `      const ops = '<button class="utp-act" onclick="mfSpeak(\\'' + c.id + '\\')">🔊 试听口播</button>' +
+    new: `      const ops = '<button class="utp-act" onclick="mfSpeak(\\'' + c.id + '\\')">🔊 试听口播</button>' + mfVideoButton(c) +
         (isReady
           ? '<button class="utp-act" onclick="mpPublish(\\'' + c.id + '\\')">🚀 发布</button>' +
             '<button class="utp-act" onclick="mpEditOpen(\\'' + c.id + '\\')">✎ 编辑</button>' +
@@ -1499,7 +1660,24 @@ const PATCHES = [
     name: '61. 导出配图与语音函数到全局',
     old: `  window.mfOpenTask = mfOpenTask; window.mfSubmit = mfSubmit; window.mfAdvance = mfAdvance;`,
     new: `  window.mfOpenTask = mfOpenTask; window.mfSubmit = mfSubmit; window.mfAdvance = mfAdvance;
-  window.mfGenerateImage = mfGenerateImage; window.mfSpeak = mfSpeak;`,
+  window.mfGenerateImage = mfGenerateImage; window.mfSpeak = mfSpeak;
+  window.mfVideoStart = mfVideoStart; window.mfVideoPoll = mfVideoPoll;`,
+  },
+  {
+    name: '62. 把关页恢复未完成的视频轮询',
+    old: `  function mfDraftHtml(s) {
+    const contents = mfContents(s);`,
+    new: `  function mfDraftHtml(s) {
+    setTimeout(function () { mfResumeVideoPolls(getState()); }, 0);
+    const contents = mfContents(s);`,
+  },
+  {
+    name: '63. 把关卡片插入视频播放器',
+    old: `        mfPreviewHtml(c) +
+        (c.aiNote ?`,
+    new: `        mfPreviewHtml(c) +
+        mfVideoHtml(c) +
+        (c.aiNote ?`,
   },
 ];
 

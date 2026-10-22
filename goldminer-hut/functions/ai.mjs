@@ -7,6 +7,7 @@ import { getUserFromRequest } from './session.mjs';
 const DEFAULT_BASE = 'https://api.deepseek.com/v1';
 const DEFAULT_MODEL = 'deepseek-chat';
 const DEFAULT_IMAGE_MODEL = 'agnes-image-2.5-flash';
+const DEFAULT_VIDEO_MODEL = 'agnes-video-v2.0';
 const MAX_BODY_BYTES = 128 * 1024;
 const MAX_IMAGE_BODY_BYTES = 512 * 1024;
 const MAX_IMAGE_REF_BYTES = 400 * 1024;
@@ -16,6 +17,8 @@ const MAX_IMAGE_PROMPT = 2000;
 const CHAT_TIMEOUT_MS = 60000;
 const MODELS_TIMEOUT_MS = 15000;
 const IMAGE_TIMEOUT_MS = 90000;
+const VIDEO_TIMEOUT_MS = 30000;
+const VIDEO_POLL_TIMEOUT_MS = 20000;
 const IMAGE_RATIOS = new Set(['1:1', '3:4', '4:3', '16:9', '9:16', '2:3', '3:2', '21:9']);
 const IMAGE_SIZES = new Set(['1K', '2K', '3K', '4K']);
 
@@ -28,6 +31,118 @@ const json = (body, status = 200) =>
 const baseUrl = (env) => String(env.AI_API_BASE || DEFAULT_BASE).replace(/\/+$/, '');
 const modelName = (env) => String(env.AI_MODEL || DEFAULT_MODEL);
 const imageModel = (env) => String(env.AI_IMAGE_MODEL || DEFAULT_IMAGE_MODEL);
+const videoModel = (env) => String(env.AI_VIDEO_MODEL || DEFAULT_VIDEO_MODEL);
+
+function videoPollBase(env) {
+  const explicit = String(env.AI_VIDEO_POLL_BASE || '').replace(/\/+$/, '');
+  if (explicit) return explicit;
+  try { return new URL(baseUrl(env)).origin; } catch { return ''; }
+}
+
+function findVideoUrl(data, origin) {
+  const seen = new Set();
+  const stack = [data];
+  const candidates = [];
+  while (stack.length) {
+    const x = stack.pop();
+    if (!x || typeof x !== 'object' || seen.has(x)) continue;
+    seen.add(x);
+    for (const [key, value] of Object.entries(x)) {
+      if (typeof value === 'string' && value) {
+        const isHttp = /^https?:\/\//i.test(value);
+        const isPath = value.startsWith('/');
+        if (isHttp || isPath) {
+          const videoKey = /video/i.test(key);
+          const videoExt = /\.(mp4|webm|mov)(\?|$)/i.test(value);
+          const urlKey = /url|output|result/i.test(key);
+          if (videoKey || videoExt) {
+            candidates.unshift(isPath ? origin + value : value);
+          } else if (urlKey) {
+            candidates.push(isPath ? origin + value : value);
+          }
+        }
+      } else if (value && typeof value === 'object') {
+        stack.push(value);
+      }
+    }
+  }
+  return candidates[0] || '';
+}
+
+async function handleVideo(env, request, url) {
+  if (request.method === 'POST') {
+    const raw = await request.text().catch(() => '');
+    if (!raw || raw.length > 64 * 1024) {
+      return json({ error: 'invalid_request', message: '请求体为空或过大' }, 400);
+    }
+    let body;
+    try { body = JSON.parse(raw); } catch { return json({ error: 'invalid_request', message: '请求不是合法 JSON' }, 400); }
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    if (!prompt) return json({ error: 'invalid_request', message: '缺少 prompt' }, 400);
+    if (prompt.length > 2000) return json({ error: 'invalid_request', message: 'prompt 过长' }, 400);
+
+    const width = Math.round(clampNumber(body.width, 256, 2048, 720));
+    const height = Math.round(clampNumber(body.height, 256, 2048, 1280));
+    const numFrames = Math.round(clampNumber(body.num_frames, 49, 241, 121));
+    const frameRate = Math.round(clampNumber(body.frame_rate, 12, 30, 24));
+
+    try {
+      const res = await upstream(env, '/videos', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: videoModel(env),
+          prompt,
+          width,
+          height,
+          num_frames: numFrames,
+          frame_rate: frameRate,
+        }),
+      }, VIDEO_TIMEOUT_MS);
+      if (!res.ok) {
+        const detail = shortDetail(await res.text().catch(() => ''));
+        return json({ error: 'upstream_error', message: '视频接口返回 ' + res.status + (detail ? '：' + detail : '') }, 502);
+      }
+      const data = await res.json().catch(() => null);
+      const id = data && (data.video_id || data.id || (data.data && (data.data.video_id || data.data.id)));
+      if (!id) return json({ error: 'empty_response', message: '视频接口没有返回 video_id' }, 502);
+      return json({ ok: true, videoId: String(id), status: 'queued', model: videoModel(env) });
+    } catch (e) {
+      return failure(e);
+    }
+  }
+
+  const videoId = url.searchParams.get('video_id') || '';
+  if (!videoId) return json({ error: 'invalid_request', message: '缺少 video_id' }, 400);
+  const pollBase = videoPollBase(env);
+  if (!pollBase) return json({ error: 'video_poll_not_configured', message: '视频查询地址未配置' }, 503);
+  try {
+    const res = await fetch(pollBase + '/agnesapi?video_id=' + encodeURIComponent(videoId), {
+      headers: { authorization: 'Bearer ' + env.AI_API_KEY },
+      signal: timeoutSignal(VIDEO_POLL_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const detail = shortDetail(await res.text().catch(() => ''));
+      return json({ error: 'upstream_error', message: '视频查询返回 ' + res.status + (detail ? '：' + detail : '') }, 502);
+    }
+    const data = await res.json().catch(() => null);
+    if (!data) return json({ error: 'empty_response', message: '视频查询没有返回内容' }, 502);
+    const nested = data.data && typeof data.data === 'object' ? data.data : {};
+    const status = String(data.status || nested.status || 'processing').toLowerCase();
+    const progress = Math.round(clampNumber(data.progress !== undefined ? data.progress : nested.progress, 0, 100, 0));
+    const message = shortDetail(data.message || data.error || nested.message || nested.error || '');
+    return json({
+      ok: true,
+      videoId,
+      status,
+      progress,
+      url: findVideoUrl(data, pollBase),
+      message,
+    });
+  } catch (e) {
+    return failure(e);
+  }
+}
 
 const shortDetail = (text) => String(text || '')
   .replace(/[\r\n\t]+/g, ' ')
@@ -225,6 +340,8 @@ export async function handleAI({ request, env, url }) {
       model: enabled ? modelName(env) : '',
       image: enabled,
       imageModel: enabled ? imageModel(env) : '',
+      video: enabled,
+      videoModel: enabled ? videoModel(env) : '',
     });
   }
   if (request.method !== 'GET' && request.method !== 'POST') {
@@ -236,5 +353,6 @@ export async function handleAI({ request, env, url }) {
   if (request.method === 'GET' && path === '/api/ai/models') return handleModels(env);
   if (request.method === 'POST' && path === '/api/ai/chat') return handleChat(env, request);
   if (request.method === 'POST' && path === '/api/ai/image') return handleImage(env, request);
+  if ((request.method === 'GET' || request.method === 'POST') && path === '/api/ai/video') return handleVideo(env, request, url);
   return json({ error: 'not_found' }, 404);
 }
