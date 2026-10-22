@@ -52,6 +52,10 @@ const MUST_HAVE = [
   'const target = this.activeCloud()',
   "showToast('✓ 云端代理连接正常",
   'MediaAI.probeCloud(function () {',
+  '.mf-task.is-done',
+  'class="tk-error"',
+  'class="mf-steps"',
+  'page-content page-',
 ];
 
 const PATCHES = [
@@ -828,6 +832,143 @@ const PATCHES = [
         ? '云端代理已启用：Key 存在服务端，本机无需填写（模型：' + utpEsc(MediaAI.cloud.model || '服务端配置') + '）。'
         : 'Key 只存本机 localStorage，不上传。') +
       '调用失败自动回落本地模板，不会卡住流程。</div></details>';`,
+  },
+  {
+    name: '47. 页面容器带页面 key（媒体页移动端样式作用域）',
+    old: `    content.innerHTML = '<div class="page-content"></div>';`,
+    new: `    content.innerHTML = '<div class="page-content page-' + page + '"></div>';`,
+  },
+  {
+    name: '48. 媒体任务卡、步骤进度与移动端间距样式',
+    old: `  @media (max-width: 768px) {
+    body.nm-embed-page .main-content { padding: 0 0 calc(66px + env(safe-area-inset-bottom)); }
+  }
+</style>`,
+    new: `  @media (max-width: 768px) {
+    body.nm-embed-page .main-content { padding: 0 0 calc(66px + env(safe-area-inset-bottom)); }
+  }
+  /* ===== 媒体流水线 · 任务卡与移动端（构建期补丁） ===== */
+  .mf-task { position: relative; background: var(--bg-panel); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 13px 15px 12px; transition: border-color .15s ease, box-shadow .15s ease; }
+  .mf-task:hover { border-color: var(--line); box-shadow: 0 4px 14px rgba(31, 26, 18, .05); }
+  .mf-task.is-done { border-color: rgba(39, 169, 115, .26); }
+  .mf-task.is-failed { border-color: rgba(232, 74, 60, .24); }
+  .mf-task .tk-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .mf-task .tk-state { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mf-task .tk-state.ok { color: var(--color-success); font-weight: 700; }
+  .mf-task .tk-pct { margin-left: auto; flex: none; font: 700 11px ui-monospace, SFMono-Regular, monospace; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .mf-task .tk-x { flex: none; width: 24px; height: 24px; margin: -2px -4px -2px 0; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--text-dim); font-size: 12px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all .15s ease; }
+  .mf-task .tk-x:hover { color: var(--color-danger); background: rgba(232, 74, 60, .07); border-color: rgba(232, 74, 60, .24); }
+  .mf-task .tk-title { margin-top: 8px; font-size: 14px; font-weight: 800; line-height: 1.5; color: var(--text-cream); overflow-wrap: anywhere; }
+  .mf-steps { display: flex; align-items: center; gap: 6px; margin: 10px 0 8px; }
+  .mf-steps .st { display: inline-flex; align-items: center; gap: 5px; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .mf-steps .st em { font-style: normal; }
+  .mf-steps .st i { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 10px; font-weight: 800; background: var(--line); color: var(--text-muted); }
+  .mf-steps .st.done { color: var(--text-muted); }
+  .mf-steps .st.done i { background: rgba(39, 169, 115, .14); color: var(--color-success); }
+  .mf-steps .st.on { color: var(--gold-bright); font-weight: 700; }
+  .mf-steps .st.on i { background: var(--gold); color: #fff; box-shadow: 0 0 0 3px rgba(255, 109, 36, .12); }
+  .mf-steps .ln { flex: 1; min-width: 8px; height: 2px; border-radius: 2px; background: var(--line); }
+  .mf-steps .ln.done { background: rgba(39, 169, 115, .5); }
+  .mf-task .tk-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--text-muted); }
+  .mf-task .tk-meta span { display: inline-flex; align-items: center; gap: 3px; }
+  .mf-task .tk-error { margin-top: 9px; border: 1px solid rgba(232, 74, 60, .2); border-radius: 8px; background: rgba(232, 74, 60, .05); color: var(--color-danger); font-size: 11.5px; overflow: hidden; }
+  .mf-task .tk-error summary { display: flex; align-items: center; gap: 6px; padding: 7px 10px; cursor: pointer; font-weight: 700; list-style: none; }
+  .mf-task .tk-error summary::-webkit-details-marker { display: none; }
+  .mf-task .tk-error summary::after { content: '展开'; margin-left: auto; font-weight: 400; opacity: .65; }
+  .mf-task .tk-error[open] summary::after { content: '收起'; }
+  .mf-task .tk-error > div { padding: 0 10px 9px; line-height: 1.65; overflow-wrap: anywhere; }
+  .mf-task .mf-ops { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line-soft); }
+  .mf-task .mf-ops .utp-act { padding: 5px 12px; font-weight: 700; }
+  .mf-task .mf-ops .utp-act:first-child { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .mf-task .mf-ops .utp-act:first-child:hover { background: var(--gold-bright); border-color: var(--gold-bright); color: #fff; }
+  @media (max-width: 640px) {
+    .page-media .module-header, .page-media-classic .module-header { flex-wrap: wrap; gap: 8px; }
+    .page-media .module-header .utp-demo-btn, .page-media-classic .module-header .utp-demo-btn { white-space: nowrap; }
+    .page-media .utp-card, .page-media-classic .utp-card { padding: 13px 12px; }
+    .page-media .utp-card-head, .page-media-classic .utp-card-head { gap: 6px 10px; margin-bottom: 10px; }
+    .page-media .utp-notice, .page-media-classic .utp-notice { display: block; padding: 9px 12px; font-size: 12px; line-height: 1.65; margin-bottom: 10px; }
+    .page-media .utp-tabs, .page-media-classic .utp-tabs { flex-wrap: nowrap; overflow-x: auto; margin: 0 -4px 12px; padding: 0 4px 3px; scrollbar-width: none; }
+    .page-media .utp-tabs::-webkit-scrollbar, .page-media-classic .utp-tabs::-webkit-scrollbar { display: none; }
+    .page-media .utp-tab, .page-media-classic .utp-tab { flex: none; padding: 6px 13px; font-size: 12.5px; }
+    .page-media .mf-lines, .page-media-classic .mf-lines { grid-template-columns: 1fr; gap: 8px; }
+    .page-media .mf-line, .page-media-classic .mf-line { display: flex; align-items: baseline; gap: 3px 8px; flex-wrap: wrap; padding: 10px 12px; }
+    .page-media .mf-line .ln-t, .page-media-classic .mf-line .ln-t { margin-bottom: 0; }
+    .page-media .mf-line .ln-d, .page-media-classic .mf-line .ln-d { flex: 1 1 160px; }
+    .page-media .mf-line .ln-n, .page-media-classic .mf-line .ln-n { margin-top: 0; margin-left: auto; }
+    .page-media .mf-task, .page-media-classic .mf-task { padding: 12px 12px 11px; }
+    .page-media .mf-task .tk-title, .page-media-classic .mf-task .tk-title { font-size: 13.5px; }
+    .page-media .mf-steps, .page-media-classic .mf-steps { gap: 4px; }
+    .page-media .mf-steps .st, .page-media-classic .mf-steps .st { gap: 4px; font-size: 10.5px; }
+    .page-media .mf-steps .st i, .page-media-classic .mf-steps .st i { width: 16px; height: 16px; font-size: 9px; }
+    .page-media .mf-steps .ln, .page-media-classic .mf-steps .ln { min-width: 4px; }
+    .page-media .mf-task .mf-ops .utp-act, .page-media-classic .mf-task .mf-ops .utp-act { flex: 1; justify-content: center; padding: 8px 12px; }
+    .page-media .mf-task .tk-error > div, .page-media-classic .mf-task .tk-error > div { max-height: 96px; overflow: auto; }
+    .page-media .mf-cfg, .page-media-classic .mf-cfg { padding: 11px 12px; }
+    .page-media .mf-cfg .utp-form, .page-media-classic .mf-cfg .utp-form { grid-template-columns: 1fr; }
+    .page-media .mf-cfg .utp-form .f.wide, .page-media-classic .mf-cfg .utp-form .f.wide { grid-column: auto; }
+  }
+</style>`,
+  },
+  {
+    name: '49. 制作任务卡改为标题+步骤进度+可折叠错误',
+    old: `    const taskRows = tasks.slice().sort(function (a, b) {
+      return (b.step < 3 ? 1 : 0) - (a.step < 3 ? 1 : 0);
+    }).map(function (t) {
+      const line = mfLineOf(t.line);
+      const step = Math.min(3, t.step || 0);
+      const pct = Math.round(step / 3 * 100);
+      const ops = [];
+      if (t.status === 'failed') {
+        ops.push('<button class="utp-act" onclick="mfRetry(\\'' + t.id + '\\')">↺ 重试</button>');
+      } else if (step < 3) {
+        ops.push('<button class="utp-act" onclick="mfAdvance(\\'' + t.id + '\\')">▸ ' + MF_STEPS[step + 1] + '</button>');
+      }
+      ops.push('<button class="utp-act danger" onclick="mfDelTask(\\'' + t.id + '\\')">✕</button>');
+      return '<div class="mf-task"><div class="tk-h"><span class="utp-tag">' + line.n + '</span>' +
+        '<span class="tk-t">' + utpEsc(t.title) + '</span>' +
+        (t.ipId ? '<span class="tk-meta">🎭 ' + utpEsc(ipNameOf(s, t.ipId)) + '</span>' : '') +
+        '<span class="tk-meta">' + (step >= 3 ? '✓ 已成稿' : MF_STEPS[step]) + (t.text === 'real' ? ' · 真实模型' : '') + '</span></div>' +
+        '<div class="mf-bar"><div class="tr"><i style="width:' + pct + '%"></i></div><span class="vv">' + pct + '%</span></div>' +
+        (t.error ? '<div class="tk-meta" style="color:var(--color-danger);margin-top:6px">⚠ ' + utpEsc(t.error) + '</div>' : '') +
+        '<div class="mf-ops" style="margin-top:8px">' + ops.join('') + '</div></div>';
+    }).join('') || '<div class="mf-empty">队列空着。<br>上面挑一条「已采用」的选题点开工，三步产出成品。</div>';`,
+    new: `    const taskRows = tasks.slice().sort(function (a, b) {
+      return (b.step < 3 ? 1 : 0) - (a.step < 3 ? 1 : 0);
+    }).map(function (t) {
+      const line = mfLineOf(t.line);
+      const step = Math.min(3, t.step || 0);
+      const pct = Math.round(step / 3 * 100);
+      const done = step >= 3;
+      const failed = !!t.error;
+      const statusText = done ? '已成稿' : (t._aiPending ? 'AI 正在写稿' : (step === 0 ? '排队中' : MF_STEPS[step] + '完成'));
+      const stepNames = ['写稿', '配图/分镜', '合成成稿'];
+      const stepsHtml = stepNames.map(function (name, i) {
+        const n = i + 1;
+        const cls = step >= n ? ' done' : (step + 1 === n ? ' on' : '');
+        return '<span class="st' + cls + '"><i>' + (step >= n ? '✓' : n) + '</i><em>' + name + '</em></span>' +
+          (i < 2 ? '<span class="ln' + (step >= n ? ' done' : '') + '"></span>' : '');
+      }).join('');
+      const ops = [];
+      if (t.status === 'failed') {
+        ops.push('<button class="utp-act" onclick="mfRetry(\\'' + t.id + '\\')">↺ 重试</button>');
+      } else if (step < 3) {
+        ops.push('<button class="utp-act" onclick="mfAdvance(\\'' + t.id + '\\')">▸ ' + MF_STEPS[step + 1] + '</button>');
+      }
+      const meta = [];
+      if (t.ipId) meta.push('<span>🎭 ' + utpEsc(ipNameOf(s, t.ipId)) + '</span>');
+      if (step >= 1) meta.push('<span>' + (t.text === 'real' ? '⚡ 真实模型' : '🧩 本地模板') + '</span>');
+      return '<div class="mf-task' + (done ? ' is-done' : '') + (failed ? ' is-failed' : '') + '">' +
+        '<div class="tk-top"><span class="utp-tag">' + line.n + '</span>' +
+        '<span class="tk-state' + (done ? ' ok' : '') + '">' + statusText + '</span>' +
+        '<span class="tk-pct">' + pct + '%</span>' +
+        '<button class="tk-x" title="删除任务" aria-label="删除任务" onclick="mfDelTask(\\'' + t.id + '\\')">✕</button></div>' +
+        '<div class="tk-title">' + utpEsc(t.title) + '</div>' +
+        '<div class="mf-steps">' + stepsHtml + '</div>' +
+        (meta.length ? '<div class="tk-meta">' + meta.join('') + '</div>' : '') +
+        (failed ? '<details class="tk-error"><summary>⚠ AI 调用失败，已保留本地模板</summary><div>' + utpEsc(t.error) + '</div></details>' : '') +
+        (ops.length ? '<div class="mf-ops">' + ops.join('') + '</div>' : '') +
+        '</div>';
+    }).join('') || '<div class="mf-empty">队列空着。<br>上面挑一条「已采用」的选题点开工，三步产出成品。</div>';`,
   },
 ];
 
