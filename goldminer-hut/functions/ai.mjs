@@ -84,23 +84,36 @@ async function handleVideo(env, request, url) {
     if (!prompt) return json({ error: 'invalid_request', message: '缺少 prompt' }, 400);
     if (prompt.length > 2000) return json({ error: 'invalid_request', message: 'prompt 过长' }, 400);
 
-    const width = Math.round(clampNumber(body.width, 256, 2048, 720));
-    const height = Math.round(clampNumber(body.height, 256, 2048, 1280));
-    const numFrames = Math.round(clampNumber(body.num_frames, 49, 241, 121));
-    const frameRate = Math.round(clampNumber(body.frame_rate, 12, 30, 24));
+    const model = videoModel(env);
+    let payload;
+    if (/video-v2\.0/i.test(model)) {
+      const width = Math.round(clampNumber(body.width, 256, 2048, 720));
+      const height = Math.round(clampNumber(body.height, 256, 2048, 1280));
+      const numFrames = Math.round(clampNumber(body.num_frames, 49, 241, 121));
+      const frameRate = Math.round(clampNumber(body.frame_rate, 12, 30, 24));
+      payload = { model, prompt, width, height, num_frames: numFrames, frame_rate: frameRate };
+    } else {
+      /* 2.5 系列：mode/seconds/size/aspect_ratio；width/height/num_frames 是禁止字段。 */
+      const seconds = String(Math.round(clampNumber(body.seconds, 4, 12, 5)));
+      const size = String(body.size || '720P').toUpperCase();
+      const allowedSizes = /flash/i.test(model) ? ['720P'] : ['720P', '1080P', '1K', '2K'];
+      const aspect = ['16:9', '9:16', '1:1', '4:3', '3:4', '3:2', '2:3', '21:9'].includes(body.aspect_ratio) ? body.aspect_ratio : '9:16';
+      payload = {
+        model,
+        prompt,
+        mode: 'text',
+        seconds,
+        size: allowedSizes.includes(size) ? size : '720P',
+        aspect_ratio: aspect,
+        n: 1,
+      };
+    }
 
     try {
       const res = await upstream(env, '/videos', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model: videoModel(env),
-          prompt,
-          width,
-          height,
-          num_frames: numFrames,
-          frame_rate: frameRate,
-        }),
+        body: JSON.stringify(payload),
       }, VIDEO_TIMEOUT_MS);
       if (!res.ok) {
         const detail = shortDetail(await res.text().catch(() => ''));
@@ -120,7 +133,8 @@ async function handleVideo(env, request, url) {
   const pollBase = videoPollBase(env);
   if (!pollBase) return json({ error: 'video_poll_not_configured', message: '视频查询地址未配置' }, 503);
   try {
-    const res = await fetch(pollBase + '/agnesapi?video_id=' + encodeURIComponent(videoId), {
+    const res = await fetch(pollBase + '/agnesapi?video_id=' + encodeURIComponent(videoId)
+      + '&model_name=' + encodeURIComponent(videoModel(env)), {
       headers: { authorization: 'Bearer ' + env.AI_API_KEY },
       signal: timeoutSignal(VIDEO_POLL_TIMEOUT_MS),
     });
