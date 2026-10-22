@@ -296,6 +296,16 @@ button{font:inherit;color:inherit}
 .md-body strong{color:var(--ink)}
 .preview-tags{display:flex;gap:6px;flex-wrap:wrap;padding:0 20px 12px}
 .tag{font-family:var(--mono);font-size:9.5px;color:var(--ink-2);background:var(--paper-2);border:1px solid var(--line-2);padding:3px 7px;border-radius:20px}
+.media-panel{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:12px;padding:0 20px 14px}
+.media-card{border:1px solid var(--line-2);background:var(--paper-2);border-radius:4px;padding:10px;min-width:0}
+.media-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.media-body{display:flex;flex-direction:column;gap:8px;min-height:64px}
+.media-body img{display:block;width:100%;max-height:340px;object-fit:cover;border:1px solid var(--line-2);border-radius:3px}
+.media-body audio{width:100%}
+.media-empty{font-size:11px;color:var(--ink-3);line-height:1.6;padding:10px 0}
+.media-link{font-family:var(--mono);font-size:10px;color:var(--accent);text-decoration:none}
+.media-link:hover{text-decoration:underline}
+@media(max-width:900px){.media-panel{grid-template-columns:1fr}}
 .preview-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:13px 18px;border-top:1px dashed var(--line);background:linear-gradient(180deg,rgba(248,240,226,.3),rgba(248,240,226,.6))}
 .review-note{color:var(--red);font-size:11.5px;line-height:1.6}
 .preview-empty{display:grid;place-items:center;min-height:400px;color:var(--ink-3);font-size:12px;text-align:center;padding:30px}
@@ -1400,6 +1410,231 @@ async function probeCloudAI() {
   }
   cloudAI.checked = true;
   return cloudAI;
+}
+
+/* ---------- 草稿媒体：AI 封面 + 口播语音 ----------
+   文件（图片/音频）存本机 IndexedDB，content.assets 只存元数据。 */
+const nmMediaUrls = {};
+const nmMediaBusy = {};
+function nmMediaDb() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error('浏览器不支持本地文件缓存')); return; }
+    const req = indexedDB.open('bubu-nm-media', 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains('files')) req.result.createObjectStore('files');
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function nmMediaStore(mode, fn) {
+  return nmMediaDb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction('files', mode);
+    const req = fn(tx.objectStore('files'));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  }));
+}
+function nmMediaPut(key, blob) { return nmMediaStore('readwrite', (st) => st.put(blob, key)); }
+function nmMediaGet(key) { return nmMediaStore('readonly', (st) => st.get(key)); }
+function nmDataUrlToBlob(dataUrl) {
+  const s = String(dataUrl || '');
+  const comma = s.indexOf(',');
+  if (comma < 0) throw new Error('图片数据格式不对');
+  const mime = (s.slice(0, comma).match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+  const bin = atob(s.slice(comma + 1));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+function nmCompressImage(src, maxW) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+        if (!w0 || !h0) { resolve(src); return; }
+        const scale = Math.min(1, maxW / w0);
+        const w = Math.max(1, Math.round(w0 * scale)), h = Math.max(1, Math.round(h0 * scale));
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(cv.toDataURL('image/jpeg', 0.82));
+      } catch { resolve(src); }
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+}
+function nmTtsText(c) {
+  let body = String(c.body || '');
+  if (c.line === 'short') {
+    try { const j = JSON.parse(body); body = j.body || body; } catch {}
+  }
+  return body.replace(/```[\s\S]*?```/g, ' ').replace(/[#>*_`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 1200);
+}
+function nmSetAsset(c, asset) {
+  const list = parseJson(c.assets, []).filter((a) => a.kind !== asset.kind);
+  list.push(asset);
+  upsertLocal('content', { rid: c.rid, assets: JSON.stringify(list) }, { user: true });
+}
+function nmImagePrompt(c) {
+  const line = lineOf(c.line);
+  const ip = c.ip_id ? findRow('ip', c.ip_id) : null;
+  const ratio = c.line === 'short' ? '3:4' : (c.line === 'voiceover' || c.line === 'drama' ? '9:16' : '16:9');
+  let body = String(c.body || '');
+  if (c.line === 'short') {
+    try { const j = JSON.parse(body); body = j.body || body; } catch {}
+  }
+  body = body.replace(/```[\s\S]*?```/g, ' ').replace(/[#>*_`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 400);
+  const bits = ['为一条中文' + line.name + '内容生成封面配图。', '标题：' + c.title + '。', '内容：' + body + '。'];
+  if (ip) bits.push('角色：' + ip.name + '，' + String(ip.persona || '').slice(0, 160) + '。');
+  bits.push('干净、有质感、适合中文社交媒体；不要出现文字、水印、logo。');
+  return { prompt: bits.join('').slice(0, 1800), ratio };
+}
+async function apiBlobFetch(path, body) {
+  const headers = {};
+  if (S.settings.token) headers.authorization = 'Bearer ' + S.settings.token;
+  headers['content-type'] = 'application/json';
+  let sameOrigin = false;
+  try {
+    sameOrigin = (location.protocol === 'http:' || location.protocol === 'https:') && new URL(apiOrigin()).origin === location.origin;
+  } catch { sameOrigin = false; }
+  const res = await fetch(apiOrigin() + path, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    credentials: sameOrigin ? 'include' : 'omit',
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    let data = null;
+    try { data = await res.json(); } catch {}
+    const err = new Error((data && (data.message || data.error)) || ('http_' + res.status));
+    err.status = res.status;
+    err.code = (data && data.error) || '';
+    throw err;
+  }
+  return res.blob();
+}
+async function nmGenImage(id) {
+  const c = findRow('content', id);
+  if (!c || nmMediaBusy['img:' + id]) return;
+  const key = 'img:' + id;
+  nmMediaBusy[key] = true;
+  renderDrafts();
+  try {
+    const p = nmImagePrompt(c);
+    const data = await apiFetch('/api/ai/image', { method: 'POST', body: { prompt: p.prompt, ratio: p.ratio } });
+    const src = data && data.image && data.image.src;
+    if (!src) throw new Error('接口没有返回图片');
+    const compressed = await nmCompressImage(src, 900);
+    const blob = String(compressed).startsWith('data:')
+      ? nmDataUrlToBlob(compressed)
+      : await (await fetch(compressed)).blob();
+    await nmMediaPut(key, blob);
+    if (nmMediaUrls[key]) { try { URL.revokeObjectURL(nmMediaUrls[key].url); } catch {} }
+    nmMediaUrls[key] = { url: URL.createObjectURL(blob), mime: blob.type || 'image/jpeg' };
+    nmSetAsset(c, { kind: 'AI封面', name: 'AI 封面 ' + p.ratio.replace(':', '×'), mime: blob.type || 'image/jpeg', bytes: blob.size, at: nowIso() });
+    toast('AI 封面已生成', 'ok');
+  } catch (e) {
+    toast('配图生成失败：' + (e.message || '未知原因'), 'warn');
+  } finally {
+    delete nmMediaBusy[key];
+    renderDrafts();
+    setTimeout(nmHydrateMedia, 0);
+  }
+}
+async function nmGenTts(id) {
+  const c = findRow('content', id);
+  if (!c || nmMediaBusy['tts:' + id]) return;
+  const key = 'tts:' + id;
+  const text = nmTtsText(c);
+  if (!text) { toast('没有可朗读的正文', 'warn'); return; }
+  nmMediaBusy[key] = true;
+  renderDrafts();
+  try {
+    const blob = await apiBlobFetch('/api/ai/tts', { text, title: c.title });
+    if (!blob || !blob.size) throw new Error('接口没有返回音频');
+    await nmMediaPut(key, blob);
+    if (nmMediaUrls[key]) { try { URL.revokeObjectURL(nmMediaUrls[key].url); } catch {} }
+    nmMediaUrls[key] = { url: URL.createObjectURL(blob), mime: blob.type || 'audio/wav' };
+    nmSetAsset(c, { kind: 'AI语音', name: '口播语音', mime: blob.type || 'audio/wav', bytes: blob.size, at: nowIso() });
+    toast('口播语音已生成，可试听/下载', 'ok');
+  } catch (e) {
+    toast('语音生成失败：' + (e.message || '未知原因'), 'warn');
+  } finally {
+    delete nmMediaBusy[key];
+    renderDrafts();
+    setTimeout(nmHydrateMedia, 0);
+  }
+}
+function nmHydrateMedia() {
+  document.querySelectorAll('[data-media-img]').forEach((el) => {
+    const id = el.getAttribute('data-media-img');
+    const key = 'img:' + id;
+    if (el.getAttribute('data-hydrated') === key) return;
+    el.setAttribute('data-hydrated', key);
+    const name = el.getAttribute('data-media-name') || '封面';
+    const paint = (url) => {
+      el.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = 'AI 封面';
+      const a = document.createElement('a');
+      a.className = 'media-link';
+      a.href = url;
+      a.download = name + '.jpg';
+      a.textContent = '下载封面';
+      el.appendChild(img);
+      el.appendChild(a);
+    };
+    if (nmMediaUrls[key]) { paint(nmMediaUrls[key].url); return; }
+    nmMediaGet(key).then((blob) => {
+      if (!blob) {
+        el.innerHTML = el.hasAttribute('data-media-has')
+          ? '<div class="media-empty">本机没有这张图，点「重画封面」重新生成。</div>'
+          : '<div class="media-empty">还没有配图，点「生成封面」让 AI 画一张。</div>';
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      nmMediaUrls[key] = { url, mime: blob.type || 'image/jpeg' };
+      paint(url);
+    }).catch(() => {});
+  });
+  document.querySelectorAll('[data-media-tts]').forEach((el) => {
+    const id = el.getAttribute('data-media-tts');
+    const key = 'tts:' + id;
+    if (el.getAttribute('data-hydrated') === key) return;
+    el.setAttribute('data-hydrated', key);
+    const name = el.getAttribute('data-media-name') || '口播';
+    const paint = (url, mime) => {
+      el.innerHTML = '';
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.preload = 'metadata';
+      audio.src = url;
+      const a = document.createElement('a');
+      a.className = 'media-link';
+      a.href = url;
+      a.download = name + (/wav/i.test(mime) ? '.wav' : '.mp3');
+      a.textContent = '下载语音';
+      el.appendChild(audio);
+      el.appendChild(a);
+    };
+    if (nmMediaUrls[key]) { paint(nmMediaUrls[key].url, nmMediaUrls[key].mime); return; }
+    nmMediaGet(key).then((blob) => {
+      if (!blob) {
+        el.innerHTML = el.hasAttribute('data-media-has')
+          ? '<div class="media-empty">本机没有这段语音，点「重新生成」。</div>'
+          : '<div class="media-empty">还没有语音，点「生成语音」朗读这篇稿。</div>';
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      nmMediaUrls[key] = { url, mime: blob.type || 'audio/wav' };
+      paint(url, blob.type || 'audio/wav');
+    }).catch(() => {});
+  });
 }
 
 function cloudLabel() {
@@ -2567,6 +2802,11 @@ function renderDrafts() {
   } else {
     const tags = parseJson(c.tags, []);
     const assets = parseJson(c.assets, []);
+    const visualAssets = assets.filter((a) => a.kind !== 'AI封面' && a.kind !== 'AI语音');
+    const hasImg = assets.some((a) => a.kind === 'AI封面');
+    const hasTts = assets.some((a) => a.kind === 'AI语音');
+    const busyImg = !!nmMediaBusy['img:' + c.rid];
+    const busyTts = !!nmMediaBusy['tts:' + c.rid];
     let acts = '';
     if (c.status === 'review') acts = `<button class="btn ghost" data-action="draft-reject" data-id="${c.rid}">打回修改</button><button class="btn ink" data-action="draft-approve" data-id="${c.rid}">通过，送发布</button>`;
     else if (c.status === 'approved') acts = `<button class="btn" data-action="draft-regen" data-id="${c.rid}">再做一版</button><button class="btn ink" data-action="publish-open" data-id="${c.rid}">去登记发布</button>`;
@@ -2578,7 +2818,18 @@ function renderDrafts() {
         <h2>${esc(c.title)}</h2>
         <div class="meta">${lineTag(c.line)}${statusChip(c.status)}<span>版本 v${esc(c.version || '1')}</span><span>完成 ${esc(fmtTime(c.finished_at || c.updatedAt))}</span>${c.prev_version_id ? '<span>上一版已归档</span>' : ''}</div>
       </div>
-      <div class="preview-tags">${tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join('')}${assets.map((a) => `<span class="tag">${esc(a.kind)} · ${esc(a.name)}</span>`).join('')}</div>
+      <div class="preview-tags">${tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join('')}${visualAssets.map((a) => `<span class="tag">${esc(a.kind)} · ${esc(a.name)}</span>`).join('')}</div>
+      <div class="media-panel">
+        <div class="media-card">
+          <div class="media-head"><span>AI 封面</span><button class="btn sm" data-action="media-image" data-id="${c.rid}" ${busyImg ? 'disabled' : ''}>${busyImg ? '生成中…' : (hasImg ? '重画封面' : '生成封面')}</button></div>
+          <div class="media-body" data-media-img="${c.rid}" data-media-name="${esc(String(c.title || '封面').slice(0, 30))}" ${hasImg ? 'data-media-has="1"' : ''}></div>
+        </div>
+        <div class="media-card">
+          <div class="media-head"><span>口播语音</span><button class="btn sm" data-action="media-tts" data-id="${c.rid}" ${busyTts ? 'disabled' : ''}>${busyTts ? '生成中…' : (hasTts ? '重新生成' : '生成语音')}</button></div>
+          <div class="media-body" data-media-tts="${c.rid}" data-media-name="${esc(String(c.title || '口播').slice(0, 30))}" ${hasTts ? 'data-media-has="1"' : ''}></div>
+        </div>
+      </div>
+      <div class="mono muted" style="font-size:9px;padding:0 20px 10px">图片/音频文件存本机浏览器，换设备需重新生成。</div>
       <div class="md-body">${renderBody(c.body)}</div>
       ${c.review_note ? `<div style="padding:0 20px 14px"><div class="review-note">把关意见：${esc(c.review_note)}</div></div>` : ''}
       <div class="preview-foot"><span class="mono muted" style="font-size:9.5px">所有内容必须经过把关才能发布 · 无跳过途径</span><div style="display:flex;gap:7px;flex-wrap:wrap">${acts}</div></div>
@@ -2600,6 +2851,7 @@ function renderDrafts() {
         ${preview}
       </div>
     </section>`;
+  setTimeout(nmHydrateMedia, 0);
 }
 
 function openRejectModal(id) {
@@ -3108,6 +3360,8 @@ function bindEvents() {
         break;
       }
       case 'draft-export': exportKit(id); break;
+      case 'media-image': nmGenImage(id); break;
+      case 'media-tts': nmGenTts(id); break;
       case 'publish-open': openPublishModal(id); break;
       case 'pick-radio': {
         const input = el.querySelector('input[type=radio]');
