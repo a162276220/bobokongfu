@@ -7,7 +7,7 @@ import { getUserFromRequest } from './session.mjs';
 const DEFAULT_BASE = 'https://api.deepseek.com/v1';
 const DEFAULT_MODEL = 'deepseek-chat';
 const DEFAULT_IMAGE_MODEL = 'agnes-image-2.5-flash';
-const DEFAULT_VIDEO_MODEL = 'agnes-video-v2.0';
+const DEFAULT_VIDEO_MODEL = 'agnes-video-2.5-flash';
 const MAX_BODY_BYTES = 128 * 1024;
 const MAX_IMAGE_BODY_BYTES = 512 * 1024;
 const MAX_IMAGE_REF_BYTES = 400 * 1024;
