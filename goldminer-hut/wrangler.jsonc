@@ -19,7 +19,8 @@
     "AI_API_BASE": "https://api.agnes-ai.cn/v1",
     "AI_MODEL": "agnes-3.0-flash",
     "AI_IMAGE_MODEL": "agnes-image-2.5-flash",
-    "AI_VIDEO_MODEL": "agnes-video-v2.0"
+    // 视频模型：当前分组支持 agnes-video-2.5-flash / agnes-video-2.5
+    "AI_VIDEO_MODEL": "agnes-video-2.5-flash"
   },
 
   "d1_databases": [
