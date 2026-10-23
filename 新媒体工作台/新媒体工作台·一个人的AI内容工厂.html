@@ -2633,6 +2633,7 @@ function buildAiReviewContext() {
       title: c.title, line: lineOf(c.line).name,
       views: num(s.views), likes: num(s.likes), comments: num(s.comments),
       shares: num(s.shares), favorites: num(s.favorites),
+      tags: parseJson(c.tags, []),
       platforms: [...new Set(pubRecords().filter((p) => p.content_id === c.rid).map((p) => p.platform))],
     };
   }).filter(Boolean).sort((a, b) => b.views - a.views).slice(0, 8);
@@ -2643,9 +2644,31 @@ function buildAiReviewContext() {
   const hot = topHot(10).map((h) => ({ title: h.title, platform: h.platform, heat: num(h.heat) }));
   const existing = S.data.topic.filter((t) => t.status !== 'done').slice(0, 20).map((t) => ({ title: t.title, line: lineOf(t.line).name, note: t.note || '' }));
   const ips = S.data.ip.slice(0, 6).map((i) => ({ name: i.name, persona: i.persona }));
+  const platformAgg = {};
+  pubRecords().forEach((p) => {
+    const c = findRow('content', p.content_id);
+    const s = c ? latestStat(c.rid) : null;
+    if (!s) return;
+    if (!platformAgg[p.platform]) platformAgg[p.platform] = { platform: p.platform, published: 0, views: 0, likes: 0, n: 0 };
+    const a = platformAgg[p.platform];
+    a.published += 1; a.views += num(s.views); a.likes += num(s.likes); a.n += 1;
+  });
+  const byPlatform = Object.values(platformAgg).map((a) => ({ ...a, avg_views: a.n ? Math.round(a.views / a.n) : 0 }));
+  const hourAgg = {};
+  pubRecords().forEach((p) => {
+    const c = findRow('content', p.content_id);
+    const s = c ? latestStat(c.rid) : null;
+    if (!s) return;
+    const h = new Date(p.published_at).getHours();
+    if (!hourAgg[h]) hourAgg[h] = { hour: h, views: 0, n: 0 };
+    hourAgg[h].views += num(s.views); hourAgg[h].n += 1;
+  });
+  const byHour = Object.values(hourAgg).map((a) => ({ ...a, avg_views: a.n ? Math.round(a.views / a.n) : 0 })).sort((a, b) => b.avg_views - a.avg_views).slice(0, 5);
   const interactions = totals.likes + totals.comments + totals.shares + totals.favorites;
   return {
-    period: '最近 30 天',
+    period: '截至今天的全部已发布数据',
+    today: todayKey(),
+    tone: S.settings.tone || '克制',
     totals: {
       views: totals.views, likes: totals.likes, comments: totals.comments,
       shares: totals.shares, favorites: totals.favorites,
@@ -2653,6 +2676,8 @@ function buildAiReviewContext() {
       published: published.length,
     },
     by_line: byLine,
+    by_platform: byPlatform,
+    by_hour: byHour,
     top_contents: top,
     recent,
     hot_topics: hot,
@@ -2669,7 +2694,7 @@ async function generateAiReview() {
   render();
   try {
     const context = buildAiReviewContext();
-    const system = '你是新媒体数据复盘与选题策划 Agent。你必须只输出一个合法 JSON 对象，不要 Markdown、不要解释。基于给定数据下结论，不能编造数字。JSON 结构：{"summary":"3-5 句复盘","wins":[{"title":"做得好的内容/做法","why":"引用数据"}],"misses":[{"title":"表现差或没做好的地方","why":"引用数据"}],"next_topics":[{"title":"具体选题标题","line":"long|short|voiceover|drama","platform":"公众号|小红书|抖音|视频号","hook":"开头钩子","why":"为什么现在做"}],"schedule_tip":"下周排期建议"}。next_topics 给 3-5 条，避免与 existing_topics 重复，标题要具体、有冲突或好奇点。';
+    const system = '你是新媒体数据复盘与选题策划 Agent。你必须只输出一个合法 JSON 对象，不要 Markdown、不要解释。基于给定数据下结论，不能编造数字；数据不足时在 summary 里明说。summary 要提到数据窗口 period。wins/misses 各 2-4 条，每条 why 必须引用 context 中的数字或事实。next_topics 给 3-5 条：line 只能是 long/short/voiceover/drama，platform 只能是 公众号/小红书/抖音/视频号；标题 12-24 字，具体、有冲突或好奇点；hook 是开头第一句；why 说明为什么现在做；选题必须符合 tone 和 ips 人设，避免与 existing_topics 重复。schedule_tip 参考 by_hour 和 by_platform。JSON 结构：{"summary":"3-5 句复盘","wins":[{"title":"做得好的内容/做法","why":"引用数据"}],"misses":[{"title":"表现差或没做好的地方","why":"引用数据"}],"next_topics":[{"title":"具体选题标题","line":"long|short|voiceover|drama","platform":"公众号|小红书|抖音|视频号","hook":"开头钩子","why":"为什么现在做"}],"schedule_tip":"下周排期建议"}。';
     const messages = [
       { role: 'system', content: system },
       { role: 'user', content: '数据：' + JSON.stringify(context) + '\n请输出复盘与下周选题建议。' },
