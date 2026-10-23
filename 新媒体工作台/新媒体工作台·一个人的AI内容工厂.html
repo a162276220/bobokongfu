@@ -347,6 +347,24 @@ table.data .t-title{font-weight:600;max-width:260px;overflow:hidden;text-overflo
 .insight.olive{border-left-color:var(--olive)}
 .insight.blue{border-left-color:var(--blue)}
 .insight.gold{border-left-color:var(--gold)}
+.ai-review{margin-bottom:16px;overflow:hidden}
+.ai-summary{padding:13px 15px 0;font-size:12.5px;line-height:1.85;color:var(--ink-2)}
+.ai-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 15px 4px}
+.ai-col h4{margin:0 0 6px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase}
+.ai-li{border-left:2px solid var(--green);background:var(--sheet-2);padding:7px 9px;margin-bottom:6px;border-radius:2px}
+.ai-li.miss{border-left-color:var(--accent)}
+.ai-li b{display:block;font-size:11.5px;color:var(--ink);line-height:1.5}
+.ai-li span{display:block;font-size:10.5px;color:var(--ink-3);line-height:1.6;margin-top:2px}
+.ai-topic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px 15px 14px}
+.ai-topic{border:1px solid var(--line-2);border-top:3px solid var(--tone);background:var(--paper-2);border-radius:3px;padding:9px 10px}
+.ai-topic-h{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px}
+.ai-topic h4{margin:0 0 5px;font-family:var(--serif);font-size:13px;line-height:1.5}
+.ai-hook,.ai-why{font-size:10.5px;color:var(--ink-3);line-height:1.6;margin-bottom:3px}
+.ai-hook{color:var(--ink-2)}
+.ai-topic .btn{margin-top:6px}
+.ai-empty{padding:16px 15px;font-size:11.5px;color:var(--ink-3);line-height:1.7}
+.ai-tip{padding:0 15px 14px;font-size:10.5px;color:var(--ink-2);line-height:1.6}
+@media(max-width:900px){.ai-cols,.ai-topic-grid{grid-template-columns:1fr}}
 .dash-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:17px}
 
 .settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;align-items:start}
@@ -2590,6 +2608,172 @@ function topHot(limit, plat) {
   return picked.slice(0, limit);
 }
 
+/* ---------------- AI 复盘与选题建议 ---------------- */
+function aiReviewReport() {
+  const r = S.meta && S.meta.aiReview;
+  return r && r.data ? r : null;
+}
+function buildAiReviewContext() {
+  ensureStats();
+  const totals = statTotals();
+  const published = S.data.content.filter((c) => c.status === 'published');
+  const byLine = LINE_KEYS.map((k) => {
+    const cs = published.filter((c) => c.line === k);
+    let views = 0, likes = 0, n = 0;
+    cs.forEach((c) => {
+      const s = latestStat(c.rid);
+      if (s) { views += num(s.views); likes += num(s.likes); n += 1; }
+    });
+    return { line: k, name: LINES[k].name, published: cs.length, with_stats: n, views, likes, avg_views: n ? Math.round(views / n) : 0 };
+  });
+  const top = published.map((c) => {
+    const s = latestStat(c.rid);
+    if (!s) return null;
+    return {
+      title: c.title, line: lineOf(c.line).name,
+      views: num(s.views), likes: num(s.likes), comments: num(s.comments),
+      shares: num(s.shares), favorites: num(s.favorites),
+      platforms: [...new Set(pubRecords().filter((p) => p.content_id === c.rid).map((p) => p.platform))],
+    };
+  }).filter(Boolean).sort((a, b) => b.views - a.views).slice(0, 8);
+  const recent = published.slice().sort((a, b) => String(b.published_at || b.finished_at || '').localeCompare(String(a.published_at || a.finished_at || ''))).slice(0, 6).map((c) => {
+    const s = latestStat(c.rid);
+    return { title: c.title, line: lineOf(c.line).name, at: c.published_at || c.finished_at, views: s ? num(s.views) : null };
+  });
+  const hot = topHot(10).map((h) => ({ title: h.title, platform: h.platform, heat: num(h.heat) }));
+  const existing = S.data.topic.filter((t) => t.status !== 'done').slice(0, 20).map((t) => ({ title: t.title, line: lineOf(t.line).name, note: t.note || '' }));
+  const ips = S.data.ip.slice(0, 6).map((i) => ({ name: i.name, persona: i.persona }));
+  const interactions = totals.likes + totals.comments + totals.shares + totals.favorites;
+  return {
+    period: '最近 30 天',
+    totals: {
+      views: totals.views, likes: totals.likes, comments: totals.comments,
+      shares: totals.shares, favorites: totals.favorites,
+      interaction_rate: totals.views ? Number((interactions / totals.views * 100).toFixed(2)) : 0,
+      published: published.length,
+    },
+    by_line: byLine,
+    top_contents: top,
+    recent,
+    hot_topics: hot,
+    existing_topics: existing,
+    ips,
+  };
+}
+async function generateAiReview() {
+  if (S.ui.aiReviewBusy) return;
+  if (!cloudAI.checked) await probeCloudAI();
+  if (!cloudAI.online) { toast('请先登录云端 AI（系统设置里登录）', 'warn'); return; }
+  S.ui.aiReviewBusy = true;
+  S.ui.aiReviewError = '';
+  render();
+  try {
+    const context = buildAiReviewContext();
+    const system = '你是新媒体数据复盘与选题策划 Agent。你必须只输出一个合法 JSON 对象，不要 Markdown、不要解释。基于给定数据下结论，不能编造数字。JSON 结构：{"summary":"3-5 句复盘","wins":[{"title":"做得好的内容/做法","why":"引用数据"}],"misses":[{"title":"表现差或没做好的地方","why":"引用数据"}],"next_topics":[{"title":"具体选题标题","line":"long|short|voiceover|drama","platform":"公众号|小红书|抖音|视频号","hook":"开头钩子","why":"为什么现在做"}],"schedule_tip":"下周排期建议"}。next_topics 给 3-5 条，避免与 existing_topics 重复，标题要具体、有冲突或好奇点。';
+    const messages = [
+      { role: 'system', content: system },
+      { role: 'user', content: '数据：' + JSON.stringify(context) + '\n请输出复盘与下周选题建议。' },
+    ];
+    let data;
+    try {
+      data = await apiFetch('/api/ai/chat', {
+        method: 'POST',
+        body: { temperature: 0.5, max_tokens: 1600, response_format: { type: 'json_object' }, messages },
+      });
+    } catch (e) {
+      if (e.status === 401 || e.status === 403 || e.status === 429) throw e;
+      data = await apiFetch('/api/ai/chat', {
+        method: 'POST',
+        body: { temperature: 0.5, max_tokens: 1600, messages },
+      });
+    }
+    const text = String(data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content || '').trim();
+    if (!text) throw new Error('模型没有返回内容');
+    let report = null;
+    try { report = JSON.parse(text); } catch {
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) { try { report = JSON.parse(m[0]); } catch {} }
+    }
+    if (!report || typeof report !== 'object') throw new Error('模型返回的不是合法 JSON');
+    const clean = (v, n) => String(v == null ? '' : v).trim().slice(0, n || 400);
+    const arr = (v) => (Array.isArray(v) ? v : []);
+    const next = arr(report.next_topics).filter((x) => x && clean(x.title, 80)).slice(0, 5).map((x) => ({
+      title: clean(x.title, 80),
+      line: LINE_KEYS.includes(x.line) ? x.line : 'long',
+      platform: ['公众号', '小红书', '抖音', '视频号'].includes(x.platform) ? x.platform : '',
+      hook: clean(x.hook, 160),
+      why: clean(x.why, 200),
+    }));
+    const result = {
+      summary: clean(report.summary, 900),
+      wins: arr(report.wins).filter((x) => x && clean(x.title, 100)).slice(0, 4).map((x) => ({ title: clean(x.title, 100), why: clean(x.why, 220) })),
+      misses: arr(report.misses).filter((x) => x && clean(x.title, 100)).slice(0, 4).map((x) => ({ title: clean(x.title, 100), why: clean(x.why, 220) })),
+      next_topics: next,
+      schedule_tip: clean(report.schedule_tip, 300),
+    };
+    if (!result.summary && !result.next_topics.length) throw new Error('模型没有产出可用复盘');
+    S.meta.aiReview = { at: nowIso(), data: result };
+    saveLocal();
+    toast('AI 复盘与选题建议已生成', 'ok');
+  } catch (e) {
+    S.ui.aiReviewError = String((e && e.message) || '生成失败');
+    toast('AI 复盘失败：' + S.ui.aiReviewError, 'warn');
+  } finally {
+    S.ui.aiReviewBusy = false;
+    render();
+  }
+}
+function addAiTopic(index) {
+  const report = aiReviewReport();
+  const t = report && report.data.next_topics && report.data.next_topics[index];
+  if (!t) return;
+  const title = String(t.title || '').trim();
+  if (!title) return;
+  if (S.data.topic.some((x) => x.title === title)) { toast('选题池里已经有这条了', 'warn'); return; }
+  const line = LINE_KEYS.includes(t.line) ? t.line : 'long';
+  const topic = normalizeRow('topic', {
+    rid: uid('topic'), updatedAt: nowIso(), title, line,
+    note: [t.hook, t.why, t.platform ? '平台：' + t.platform : ''].filter(Boolean).join(' · '),
+    source: 'AI 复盘建议', hot_id: '', status: 'todo', created_at: nowIso(),
+  });
+  upsertLocal('topic', topic, { dirty: true, stamp: false, user: true });
+  toast('已加入选题池：' + title.slice(0, 18), 'ok');
+  render();
+}
+function aiReviewPanel(mode) {
+  const report = aiReviewReport();
+  const full = mode !== 'compact';
+  const busy = !!S.ui.aiReviewBusy;
+  const err = S.ui.aiReviewError || '';
+  const action = `<button class="btn sm ${report ? '' : 'ink'}" data-action="ai-review" ${busy ? 'disabled' : ''}>${report ? '重新生成' : '生成复盘'}</button>`;
+  const head = `<div class="panel-head"><h3>🤖 AI 复盘与选题</h3><span class="hint">${report ? '生成于 ' + esc(relTime(report.at)) + ' · 选题需你确认' : '读数据 → 复盘 → 给下周选题'}</span><div style="display:flex;gap:7px;flex-wrap:wrap">${full ? action : `${report ? '<button class="btn sm" data-nav="dashboard">查看完整复盘</button>' : ''}${action}`}</div></div>`;
+  if (busy) return `<section class="panel ai-review">${head}<div class="ai-empty">AI 正在读你的发布数据、产线表现和热点…</div></section>`;
+  if (err) return `<section class="panel ai-review">${head}<div class="ai-empty" style="color:var(--red)">生成失败：${esc(err)} <button class="btn tiny" data-action="ai-review">重试</button></div></section>`;
+  if (!report) return `<section class="panel ai-review">${head}<div class="ai-empty">还没有复盘。点「生成复盘」，AI 会分析已发布内容、各产线表现和当前热点，给出复盘与 3～5 条选题建议。</div></section>`;
+  const d = report.data;
+  const topics = d.next_topics || [];
+  const showTopics = full ? topics : topics.slice(0, 2);
+  const wins = (d.wins || []).map((x) => `<div class="ai-li"><b>✓ ${esc(x.title)}</b><span>${esc(x.why)}</span></div>`).join('');
+  const misses = (d.misses || []).map((x) => `<div class="ai-li miss"><b>△ ${esc(x.title)}</b><span>${esc(x.why)}</span></div>`).join('');
+  const topicCards = showTopics.map((t, i) => {
+    const l = lineOf(t.line);
+    return `<div class="ai-topic" style="--tone:${l.tone}">
+      <div class="ai-topic-h">${lineTag(t.line)}${t.platform ? `<span class="tag">${esc(t.platform)}</span>` : ''}</div>
+      <h4>${esc(t.title)}</h4>
+      ${t.hook ? `<div class="ai-hook">钩子：${esc(t.hook)}</div>` : ''}
+      ${t.why ? `<div class="ai-why">${esc(t.why)}</div>` : ''}
+      <button class="btn tiny ink" data-action="ai-add-topic" data-index="${i}">＋ 加入选题池</button>
+    </div>`;
+  }).join('');
+  return `<section class="panel ai-review">
+    ${head}
+    <div class="ai-summary">${esc(d.summary || '暂无复盘摘要')}</div>
+    ${full ? `<div class="ai-cols"><div class="ai-col"><h4>做得好的</h4>${wins || '<div class="ai-li"><span>数据还不够，先多发几条。</span></div>'}</div><div class="ai-col"><h4>需要调整的</h4>${misses || '<div class="ai-li miss"><span>暂无。</span></div>'}</div></div>` : ''}
+    <div class="ai-topic-grid">${topicCards || '<div class="ai-empty">这次没有给出选题，点「重新生成」再试。</div>'}</div>
+    ${full && d.schedule_tip ? `<div class="ai-tip">🗓 ${esc(d.schedule_tip)}</div>` : ''}
+  </section>`;
+}
+
 function renderTopics() {
   const el = document.getElementById('view-topics');
   if (!el) return;
@@ -2648,6 +2832,7 @@ function renderTopics() {
   const mins = Math.max(0, Math.ceil((next - Date.now()) / 60000));
   el.innerHTML = `
     ${kpi}
+    ${aiReviewPanel('compact')}
     <div class="split">
       <section>
         <div class="sec-head">
@@ -3038,6 +3223,7 @@ function renderDashboard() {
         <div class="kpi k3"><span class="idx">03</span><div class="kpi-num">${fmt(totals.comments)}</div><div class="kpi-label">总评论</div><div class="kpi-note">转发收藏 ${fmt(totals.shares + totals.favorites)}</div></div>
         <div class="kpi k4"><span class="idx">04</span><div class="kpi-num">${weekPubs}<span class="unit">条</span></div><div class="kpi-label">近 7 天发布</div><div class="kpi-note">连续更新 ${streakDays()} 天</div></div>
       </div>
+      ${aiReviewPanel('full')}
       <div class="dash-grid">
         <div class="panel">
           <div class="panel-head"><h3>产线表现对比</h3><span class="hint">按最新一条数据汇总阅读</span></div>
@@ -3342,6 +3528,8 @@ function bindEvents() {
         break;
       }
       case 'hot-convert': hotToTopic(id); break;
+      case 'ai-review': generateAiReview(); break;
+      case 'ai-add-topic': addAiTopic(Number(el.dataset.index)); break;
       case 'hot-refresh': {
         if (hotBusy) { toast('正在联网抓取，稍等片刻', 'warn'); break; }
         const label = el.textContent;
