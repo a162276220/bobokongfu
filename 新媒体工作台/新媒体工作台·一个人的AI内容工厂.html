@@ -317,6 +317,20 @@ button{font:inherit;color:inherit}
 .pub-card h4{margin:4px 0 6px;font-family:var(--serif);font-size:14px;line-height:1.45;font-weight:700}
 .pub-card .meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--ink-3)}
 .pub-card .acts{display:flex;gap:6px;margin-top:10px}
+.pub-ai{margin-top:9px;padding:8px 9px;border:1px dashed var(--line);border-radius:3px;background:var(--paper-2)}
+.pub-ai.on{border-style:solid;border-color:var(--green);background:rgba(63,191,111,.06)}
+.pub-ai-k{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--ink-3);margin-bottom:3px}
+.pub-ai-v{font-size:11px;color:var(--ink-2);line-height:1.55}
+.pub-ai-v span{display:block;color:var(--ink-3);font-size:10px;margin-top:2px}
+.pub-ai .acts{display:flex;gap:6px;margin-top:7px}
+.sched-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px dashed var(--line-2)}
+.sched-row:last-child{border-bottom:0}
+.sched-row.due{background:rgba(232,163,61,.08)}
+.sched-row .s-time{font-family:var(--mono);font-size:10px;color:var(--ink-2);white-space:nowrap}
+.sched-row .s-t{flex:1;min-width:0;font-size:12px}
+.sched-row .s-t b{display:block;font-size:12.5px;color:var(--ink);line-height:1.45}
+.sched-row .s-t span{font-size:10px;color:var(--ink-3);line-height:1.55}
+.sched-row .acts{display:flex;gap:6px;flex-wrap:wrap}
 .pub-card .acts .btn{flex:1;padding:5px 7px;font-size:10.5px}
 .platform-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
 .platform{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:2px;border:1px solid var(--line-2);color:var(--ink-2);background:var(--paper-2)}
@@ -2539,6 +2553,10 @@ function publishContent(id, platform, method) {
   c.approved_at = c.approved_at || nowIso();
   c.updatedAt = nowIso();
   upsertLocal('content', c, { dirty: true, stamp: false, user: true });
+  if (Array.isArray(S.meta.schedulePlan)) {
+    S.meta.schedulePlan = S.meta.schedulePlan.filter((p) => p.content_id !== c.rid);
+    saveLocal();
+  }
   const t = S.data.task.find((x) => x.content_id === id);
   if (t) {
     t.status = 'done';
@@ -3201,18 +3219,93 @@ function openRejectModal(id) {
     </form>`);
 }
 
+function schedulePlans() {
+  if (!Array.isArray(S.meta.schedulePlan)) S.meta.schedulePlan = [];
+  return S.meta.schedulePlan.filter((p) => {
+    if (!p || !p.content_id) return false;
+    const c = findRow('content', p.content_id);
+    return !!(c && c.status === 'approved');
+  });
+}
+function saveSchedulePlans(list) {
+  S.meta.schedulePlan = list;
+  saveLocal();
+}
+function nextPublishTime(hour) {
+  const now = new Date();
+  const d = new Date(now);
+  d.setHours(hour, 0, 0, 0);
+  if (d.getTime() <= now.getTime() + 5 * 60000) d.setDate(d.getDate() + 1);
+  return d.toISOString();
+}
+function suggestPublish(c, ctx) {
+  const lineDef = c.line === 'long' ? '公众号' : c.line === 'short' ? '小红书' : c.line === 'voiceover' ? '视频号' : '抖音';
+  const bestHour = (ctx.by_hour && ctx.by_hour[0]) || null;
+  const hour = bestHour ? bestHour.hour : 20;
+  const bestPlatform = (ctx.by_platform || []).slice().sort((a, b) => b.avg_views - a.avg_views)[0];
+  const at = nextPublishTime(hour);
+  const bits = [bestHour ? `建议 ${hour}:00 左右发布，该时段均值 ${fmt(bestHour.avg_views)}` : '暂无历史时段数据，先按 20:00 建议'];
+  if (bestPlatform) bits.push(`平台均值最高：${bestPlatform.platform}`);
+  const tip = S.meta.aiReview && S.meta.aiReview.data && S.meta.aiReview.data.schedule_tip;
+  if (tip) bits.push('AI：' + tip);
+  return { platform: lineDef, at, reason: bits.join(' · ') };
+}
+function adoptSchedule(id) {
+  const c = findRow('content', id);
+  if (!c || c.status !== 'approved') return;
+  const plans = schedulePlans();
+  if (plans.some((p) => p.content_id === id)) { toast('这条已经排期了', 'warn'); return; }
+  const s = suggestPublish(c, buildAiReviewContext());
+  plans.push({ rid: uid('sched'), content_id: id, platform: s.platform, at: s.at, reason: s.reason, created_at: nowIso(), status: 'planned' });
+  saveSchedulePlans(plans);
+  toast('已采纳排期：' + s.platform + ' · ' + fmtTime(s.at), 'ok');
+  renderPublish();
+}
+function adoptAllSchedules() {
+  const pending = S.data.content.filter((c) => c.status === 'approved').sort((a, b) => (b.approved_at || '').localeCompare(a.approved_at || ''));
+  const plans = schedulePlans();
+  const ctx = buildAiReviewContext();
+  let n = 0;
+  pending.forEach((c, i) => {
+    if (plans.some((p) => p.content_id === c.rid)) return;
+    const s = suggestPublish(c, ctx);
+    const at = new Date(Date.parse(s.at));
+    at.setDate(at.getDate() + i);
+    plans.push({ rid: uid('sched'), content_id: c.rid, platform: s.platform, at: at.toISOString(), reason: s.reason, created_at: nowIso(), status: 'planned' });
+    n += 1;
+  });
+  saveSchedulePlans(plans);
+  toast(n ? `已采纳 ${n} 条排期` : '没有新的排期建议', n ? 'ok' : 'warn');
+  renderPublish();
+}
+function cancelSchedule(rid) {
+  saveSchedulePlans(schedulePlans().filter((p) => p.rid !== rid));
+  toast('已取消这条排期', 'ok');
+  renderPublish();
+}
+
 function renderPublish() {
   const el = document.getElementById('view-publish');
   if (!el) return;
   const pending = S.data.content.filter((c) => c.status === 'approved').sort((a, b) => (b.approved_at || '').localeCompare(a.approved_at || ''));
+  const plans = schedulePlans();
+  const ctx = buildAiReviewContext();
+  const scheduleTip = S.meta.aiReview && S.meta.aiReview.data && S.meta.aiReview.data.schedule_tip;
   const cards = pending.map((c) => {
     const l = lineOf(c.line);
     const tags = parseJson(c.tags, []);
+    const plan = plans.find((p) => p.content_id === c.rid);
+    const s = plan ? null : suggestPublish(c, ctx);
+    const due = plan && Date.parse(plan.at) <= Date.now();
+    const aiBlock = plan
+      ? `<div class="pub-ai on"><div class="pub-ai-k">📅 已排期</div><div class="pub-ai-v">${esc(plan.platform)} · ${esc(fmtTime(plan.at))}<span>${due ? '已到时间，去发布' : '到点后在这里确认发布'}</span></div><div class="acts"><button class="btn tiny ink" data-action="publish-open" data-id="${c.rid}" data-platform="${esc(plan.platform)}">去发布</button><button class="btn tiny" data-action="schedule-cancel" data-sched="${plan.rid}">取消</button></div></div>`
+      : `<div class="pub-ai"><div class="pub-ai-k">🤖 AI 建议</div><div class="pub-ai-v">${esc(s.platform)} · ${esc(fmtTime(s.at))}<span>${esc(s.reason)}</span></div><div class="acts"><button class="btn tiny ink" data-action="schedule-adopt" data-id="${c.rid}">采纳排期</button><button class="btn tiny" data-action="publish-open" data-id="${c.rid}" data-platform="${esc(s.platform)}">直接发布</button></div></div>`;
     return `<article class="pub-card" style="--tone:${l.tone}">
       <div class="meta">${lineTag(c.line)}<span>v${esc(c.version || '1')}</span></div>
       <h4>${esc(c.title)}</h4>
       <div class="meta">${tags.slice(0, 3).map((t) => '#' + esc(t)).join(' ') || '未设置标签'}</div>
       <div class="platform-chips">${PLATFORMS.map((p) => `<span class="platform">${p}</span>`).join('')}</div>
+      ${aiBlock}
       <div class="acts"><button class="btn sm" data-action="draft-export" data-id="${c.rid}">导出</button><button class="btn sm ink" data-action="publish-open" data-id="${c.rid}">登记发布</button></div>
     </article>`;
   }).join('');
@@ -3225,8 +3318,18 @@ function renderPublish() {
   pubRecords().forEach((p) => { byPlatform[p.platform] = (byPlatform[p.platform] || 0) + 1; });
   el.innerHTML = `
     <section class="section" style="padding-top:22px">
-      <div class="sec-head"><div class="sec-title"><h2>待发布</h2><span class="rule">${pending.length} approved</span></div><div class="sec-sub">连续更新 ${streakDays()} 天 · 已登记 ${pubRecords().length} 条</div></div>
+      <div class="sec-head"><div class="sec-title"><h2>待发布</h2><span class="rule">${pending.length} approved</span></div><div class="sec-sub">连续更新 ${streakDays()} 天 · 已登记 ${pubRecords().length} 条</div><button class="btn sm ink" style="margin-left:auto" data-action="schedule-adopt-all" ${pending.length ? '' : 'disabled'}>全部采纳 AI 排期</button></div>
       <div class="pub-cards">${cards || emptyState('没有待发布内容', '先去草稿箱通过一篇，通过后才会出现在这里。')}</div>
+    </section>
+    <section class="section" style="padding-top:26px">
+      <div class="sec-head"><div class="sec-title"><h2>排期计划</h2><span class="rule">${plans.length} planned</span></div><div class="sec-sub">${scheduleTip ? 'AI：' + esc(scheduleTip) : '排期存本机 · 到点后仍需你确认发布'}</div></div>
+      <div class="panel"><div class="panel-body" style="padding:0">
+        ${plans.length ? `<div class="sched-list">${plans.slice().sort((a, b) => String(a.at).localeCompare(String(b.at))).map((p) => {
+          const c = findRow('content', p.content_id);
+          const due = Date.parse(p.at) <= Date.now();
+          return `<div class="sched-row${due ? ' due' : ''}"><div class="s-time">${esc(fmtTime(p.at))}</div><div class="s-t"><b>${esc(c ? c.title : '内容已删除')}</b><span>${esc(p.platform)} · ${due ? '已到时间' : '计划中'}${p.reason ? ' · ' + esc(p.reason) : ''}</span></div><div class="acts"><button class="btn tiny ink" data-action="publish-open" data-id="${p.content_id}" data-platform="${esc(p.platform)}">去发布</button><button class="btn tiny" data-action="schedule-cancel" data-sched="${p.rid}">取消</button></div></div>`;
+        }).join('')}</div>` : emptyState('还没有排期', '在上面的待发布卡片里「采纳排期」，AI 会按最佳时段和平台给你安排。')}
+      </div></div>
     </section>
     <section class="section" style="padding-top:26px">
       <div class="sec-head"><div class="sec-title"><h2>发布记录</h2><span class="rule">publish log</span></div><div class="sec-sub">${PLATFORMS.map((p) => p + ' ' + (byPlatform[p] || 0)).join(' · ')}</div></div>
@@ -3238,10 +3341,12 @@ function renderPublish() {
     </section>`;
 }
 
-function openPublishModal(id) {
+function openPublishModal(id, platform) {
   const c = findRow('content', id);
   if (!c) return;
-  const def = c.line === 'long' ? '公众号' : c.line === 'short' ? '小红书' : c.line === 'voiceover' ? '视频号' : '抖音';
+  const def = platform && PLATFORMS.includes(platform)
+    ? platform
+    : (c.line === 'long' ? '公众号' : c.line === 'short' ? '小红书' : c.line === 'voiceover' ? '视频号' : '抖音');
   openModal('登记发布', 'Publishing / Register', `
     <form data-form="publish" data-id="${esc(id)}">
       <div class="form-error"></div>
@@ -3828,7 +3933,10 @@ function bindEvents() {
       case 'media-image': nmGenImage(id); break;
       case 'media-tts': nmGenTts(id); break;
       case 'media-tts-local': nmLocalTts(id); break;
-      case 'publish-open': openPublishModal(id); break;
+      case 'publish-open': openPublishModal(id, el.dataset.platform); break;
+      case 'schedule-adopt': adoptSchedule(id); break;
+      case 'schedule-adopt-all': adoptAllSchedules(); break;
+      case 'schedule-cancel': cancelSchedule(el.dataset.sched); break;
       case 'pick-radio': {
         const input = el.querySelector('input[type=radio]');
         if (input) {
