@@ -2827,6 +2827,29 @@ function addAiTopic(index) {
   toast('已加入选题池：' + title.slice(0, 18), 'ok');
   render();
 }
+function startAiTopic(index) {
+  const report = aiReviewReport();
+  const t = report && report.data.next_topics && report.data.next_topics[index];
+  if (!t) return;
+  const title = String(t.title || '').trim();
+  if (!title) return;
+  const line = LINE_KEYS.includes(t.line) ? t.line : 'long';
+  let topic = S.data.topic.find((x) => x.title === title);
+  if (topic && topic.status === 'making') {
+    toast('这个选题已有在制任务，去内容工厂看看', 'warn');
+    goView('factory');
+    return;
+  }
+  if (!topic) {
+    topic = normalizeRow('topic', {
+      rid: uid('topic'), updatedAt: nowIso(), title, line,
+      note: [t.hook, t.why, t.platform ? '平台：' + t.platform : ''].filter(Boolean).join(' · '),
+      source: 'AI 复盘建议', hot_id: '', status: 'todo', created_at: nowIso(),
+    });
+    upsertLocal('topic', topic, { dirty: true, stamp: false, user: true });
+  }
+  createTask(topic, { line: topic.line || line });
+}
 function aiReviewPanel(mode) {
   const report = aiReviewReport();
   const full = mode !== 'compact';
@@ -2850,7 +2873,10 @@ function aiReviewPanel(mode) {
       <h4>${esc(t.title)}</h4>
       ${t.hook ? `<div class="ai-hook">钩子：${esc(t.hook)}</div>` : ''}
       ${t.why ? `<div class="ai-why">${esc(t.why)}</div>` : ''}
-      <button class="btn tiny ink" data-action="ai-add-topic" data-index="${i}">＋ 加入选题池</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn tiny ink" data-action="ai-start" data-index="${i}">▶ 直接开工</button>
+        <button class="btn tiny" data-action="ai-add-topic" data-index="${i}">＋ 加入选题池</button>
+      </div>
     </div>`;
   }).join('');
   return `<section class="panel ai-review">
@@ -2859,6 +2885,7 @@ function aiReviewPanel(mode) {
     <div class="ai-summary">${esc(d.summary || '暂无复盘摘要')}</div>
     ${full ? `<div class="ai-cols"><div class="ai-col"><h4>做得好的</h4>${wins || '<div class="ai-li"><span>数据还不够，先多发几条。</span></div>'}</div><div class="ai-col"><h4>需要调整的</h4>${misses || '<div class="ai-li miss"><span>暂无。</span></div>'}</div></div>` : ''}
     <div class="ai-topic-grid">${topicCards || '<div class="ai-empty">这次没有给出选题，点「重新生成」再试。</div>'}</div>
+    ${full ? '<div class="ai-tip">「直接开工」会自动选一个空闲 IP 并进入内容工厂；「加入选题池」只登记不制作。</div>' : ''}
     ${full && d.schedule_tip ? `<div class="ai-tip">🗓 ${esc(d.schedule_tip)}</div>` : ''}
   </section>`;
 }
@@ -3742,6 +3769,7 @@ function bindEvents() {
       case 'hot-convert': hotToTopic(id); break;
       case 'ai-review': generateAiReview(); break;
       case 'ai-add-topic': addAiTopic(Number(el.dataset.index)); break;
+      case 'ai-start': startAiTopic(Number(el.dataset.index)); break;
       case 'stat-open': openStatModal(); break;
       case 'stat-save': saveManualStat(); break;
       case 'stat-template': downloadStatTemplate(); break;
