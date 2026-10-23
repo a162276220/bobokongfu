@@ -74,7 +74,9 @@ const MUST_HAVE = [
   'mf-video-status',
   '🎬 生成视频',
   'function mfTtsStart(cid)',
+  'function mfLocalTts(cid)',
   'function mfHydrateTts()',
+  '🏠 本机语音',
   'data-tts-id',
   '⬇ 下载语音',
   '/api/ai/tts',
@@ -1623,7 +1625,8 @@ const PATCHES = [
     const t = c.tts || {};
     const busy = t.status === 'processing';
     const label = busy ? '🎙 语音生成中…' : (t.status === 'ready' ? '🎙 重新生成语音' : (t.status === 'failed' ? '🎙 重试语音' : '🎙 生成语音'));
-    return '<button class="utp-act"' + (busy ? ' disabled' : '') + ' onclick="mfTtsStart(\\'' + c.id + '\\')">' + label + '</button>';
+    return '<button class="utp-act"' + (busy ? ' disabled' : '') + ' onclick="mfTtsStart(\\'' + c.id + '\\')">' + label + '</button>' +
+      '<button class="utp-act"' + (busy ? ' disabled' : '') + ' onclick="mfLocalTts(\\'' + c.id + '\\')">🏠 本机语音</button>';
   }
   function mfTtsHtml(c) {
     const t = c && c.tts;
@@ -1683,6 +1686,59 @@ const PATCHES = [
         if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
       }
       showToast('语音生成失败：' + ((e && e.message) || '未知原因'), 'warning');
+    });
+  }
+  function mfLocalTts(cid) {
+    const s = getState();
+    const c = mfContents(s).find(function (x) { return x.id === cid; });
+    if (!c) return;
+    if (c.tts && c.tts.status === 'processing') return;
+    const text = mfTtsText(c);
+    if (!text) { showToast('没有可朗读的正文', 'warning'); return; }
+    c.tts = { status: 'processing', at: new Date().toISOString(), textLen: text.length, source: 'local' };
+    saveState();
+    if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+    fetch('http://127.0.0.1:8790/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text }),
+    }).then(function (r) {
+      if (!r.ok) {
+        return r.json().catch(function () { return null; }).then(function (j) {
+          throw new Error((j && (j.message || j.error)) || ('HTTP ' + r.status));
+        });
+      }
+      return r.blob();
+    }).then(function (blob) {
+      if (!blob || !blob.size) throw new Error('没有返回音频');
+      return mfTtsPut(cid, blob).catch(function () { return null; }).then(function () {
+        const ss = getState();
+        const cc = mfContents(ss).find(function (x) { return x.id === cid; });
+        if (!cc) return;
+        if (_mfTtsUrls[cid] && _mfTtsUrls[cid].url) {
+          try { URL.revokeObjectURL(_mfTtsUrls[cid].url); } catch (e) {}
+        }
+        _mfTtsUrls[cid] = { url: URL.createObjectURL(blob), mime: blob.type || 'audio/wav' };
+        cc.tts = { status: 'ready', mime: blob.type || 'audio/wav', bytes: blob.size, source: 'local', at: new Date().toISOString() };
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+        setTimeout(mfHydrateTts, 0);
+        showToast('✓ 本机语音已生成（免费）', 'success');
+      });
+    }).catch(function (e) {
+      const ss = getState();
+      const cc = mfContents(ss).find(function (x) { return x.id === cid; });
+      if (cc) {
+        cc.tts = {
+          status: 'failed',
+          error: '本机语音失败：' + ((e && e.message) || '未知原因') + '（先运行 goldminer-hut/启动本机语音.bat）',
+          source: 'local',
+          at: new Date().toISOString(),
+        };
+        saveState();
+        if (window.currentPage === 'media' || window.currentPage === 'media-classic') refreshPage('media');
+      }
+      showToast('本机语音失败：先运行 goldminer-hut/启动本机语音.bat', 'warning');
     });
   }
   function mfHydrateTts() {
@@ -1822,7 +1878,7 @@ const PATCHES = [
   window.mfGenerateImage = mfGenerateImage; window.mfSpeak = mfSpeak;
   window.mfVideoStart = mfVideoStart; window.mfVideoPoll = mfVideoPoll;
   window.mfTtsStart = mfTtsStart; window.mfHydrateTts = mfHydrateTts;
-  window.mfListModels = mfListModels;`,
+  window.mfLocalTts = mfLocalTts; window.mfListModels = mfListModels;`,
   },
   {
     name: '64. AI 引擎面板查看服务端可用模型',

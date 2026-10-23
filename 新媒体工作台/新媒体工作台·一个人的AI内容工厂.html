@@ -1416,6 +1416,7 @@ async function probeCloudAI() {
    文件（图片/音频）存本机 IndexedDB，content.assets 只存元数据。 */
 const nmMediaUrls = {};
 const nmMediaBusy = {};
+const LOCAL_TTS_URL = 'http://127.0.0.1:8790/tts';
 function nmMediaDb() {
   return new Promise((resolve, reject) => {
     if (!window.indexedDB) { reject(new Error('浏览器不支持本地文件缓存')); return; }
@@ -1566,6 +1567,36 @@ async function nmGenTts(id) {
     toast('口播语音已生成，可试听/下载', 'ok');
   } catch (e) {
     toast('语音生成失败：' + (e.message || '未知原因'), 'warn');
+  } finally {
+    delete nmMediaBusy[key];
+    renderDrafts();
+    setTimeout(nmHydrateMedia, 0);
+  }
+}
+async function nmLocalTts(id) {
+  const c = findRow('content', id);
+  if (!c || nmMediaBusy['tts:' + id]) return;
+  const key = 'tts:' + id;
+  const text = nmTtsText(c);
+  if (!text) { toast('没有可朗读的正文', 'warn'); return; }
+  nmMediaBusy[key] = true;
+  renderDrafts();
+  try {
+    const res = await fetch(LOCAL_TTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) throw new Error('本机语音助手返回 HTTP ' + res.status);
+    const blob = await res.blob();
+    if (!blob || !blob.size) throw new Error('没有返回音频');
+    await nmMediaPut(key, blob);
+    if (nmMediaUrls[key]) { try { URL.revokeObjectURL(nmMediaUrls[key].url); } catch {} }
+    nmMediaUrls[key] = { url: URL.createObjectURL(blob), mime: blob.type || 'audio/wav' };
+    nmSetAsset(c, { kind: 'AI语音', name: '本机语音', mime: blob.type || 'audio/wav', bytes: blob.size, at: nowIso(), source: 'local' });
+    toast('本机语音已生成（免费）', 'ok');
+  } catch (e) {
+    toast('本机语音失败：' + (e.message || '未知原因') + '；先运行 goldminer-hut/启动本机语音.bat', 'warn');
   } finally {
     delete nmMediaBusy[key];
     renderDrafts();
@@ -2828,7 +2859,7 @@ function renderDrafts() {
           <div class="media-body" data-media-img="${c.rid}" data-media-name="${esc(String(c.title || '封面').slice(0, 30))}" ${hasImg ? 'data-media-has="1"' : ''}></div>
         </div>
         <div class="media-card">
-          <div class="media-head"><span>口播语音</span><button class="btn sm" data-action="media-tts" data-id="${c.rid}" ${busyTts ? 'disabled' : ''}>${busyTts ? '生成中…' : (hasTts ? '重新生成' : '生成语音')}</button></div>
+          <div class="media-head"><span>口播语音</span><span style="display:flex;gap:6px"><button class="btn sm" data-action="media-tts" data-id="${c.rid}" ${busyTts ? 'disabled' : ''}>${busyTts ? '生成中…' : (hasTts ? '重新生成' : '生成语音')}</button><button class="btn sm" data-action="media-tts-local" data-id="${c.rid}" ${busyTts ? 'disabled' : ''}>本机语音</button></span></div>
           <div class="media-body" data-media-tts="${c.rid}" data-media-name="${esc(String(c.title || '口播').slice(0, 30))}" ${hasTts ? 'data-media-has="1"' : ''}></div>
         </div>
       </div>
@@ -3365,6 +3396,7 @@ function bindEvents() {
       case 'draft-export': exportKit(id); break;
       case 'media-image': nmGenImage(id); break;
       case 'media-tts': nmGenTts(id); break;
+      case 'media-tts-local': nmLocalTts(id); break;
       case 'publish-open': openPublishModal(id); break;
       case 'pick-radio': {
         const input = el.querySelector('input[type=radio]');
